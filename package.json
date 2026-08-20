@@ -2,7 +2,7 @@
   "name": "plc-codex",
   "displayName": "PLC Codex Simulator",
   "description": "Compila e executa projetos ST IEC 61131-3 locais.",
-  "version": "0.16.9",
+  "version": "0.17.0",
   "publisher": "plc-codex",
   "engines": {
     "vscode": "^1.85.0"
@@ -142,6 +142,11 @@
         "command": "plcCodex.unforceVariable",
         "title": "Remover Força",
         "icon": "$(unlock)"
+      },
+      {
+        "command": "plcCodex.importXmlInto",
+        "title": "PLC Codex: Importar PLCopenXML no Projeto",
+        "icon": "$(cloud-download)"
       },
       {
         "command": "plcCodex.exportXml",
@@ -325,6 +330,11 @@
         },
         {
           "command": "plcCodex.exportXml",
+          "when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive || viewItem == plcProjectRunning)",
+          "group": "inline@6"
+        },
+        {
+          "command": "plcCodex.importXmlInto",
           "when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive || viewItem == plcProjectRunning)",
           "group": "inline@5"
         }

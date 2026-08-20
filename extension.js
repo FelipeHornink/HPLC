@@ -511,6 +511,65 @@ function copyProjectTemplate(context, target) {
   fs.cpSync(template, target, { recursive: true });
 }
 
+const PROJECT_SOURCE_FOLDERS = ['types', 'functions', 'blocks', 'globals', 'programs', 'routines'];
+
+// O template carrega um projeto de demonstracao. Ele serve de exemplo, nao de
+// ponto de partida: projeto novo e projeto que vai receber um XML precisam
+// comecar sem POU, sem GVL, sem mapa de I/O e sem tela montada.
+function resetProjectContent(target) {
+  const name = path.basename(target);
+  for (const folder of PROJECT_SOURCE_FOLDERS) {
+    const full = path.join(target, folder);
+    fs.rmSync(full, { recursive: true, force: true });
+    fs.mkdirSync(full, { recursive: true });
+  }
+  fs.rmSync(path.join(target, 'plcopen'), { recursive: true, force: true });
+  fs.rmSync(path.join(target, 'export'), { recursive: true, force: true });
+  fs.rmSync(path.join(target, '.plcsim'), { recursive: true, force: true });
+  fs.mkdirSync(path.join(target, 'panel'), { recursive: true });
+  fs.writeFileSync(path.join(target, 'panel', 'painel.json'), JSON.stringify({
+    version: 1, title: `${name} — mapeamento pendente`,
+    display: { realPrecision: 2, theme: 'light' },
+    areas: { monitoring: [], ihm: [], panel: [], interface: [], field: [] }
+  }, null, 2) + '\n');
+  fs.writeFileSync(path.join(target, 'panel', 'pid.json'), JSON.stringify({
+    version: 1, title: `${name} — P&ID pendente`,
+    display: { realPrecision: 2, theme: 'light' }, items: []
+  }, null, 2) + '\n');
+  fs.writeFileSync(path.join(target, 'io.toml'),
+    '# Mapa de I/O do projeto. Preencha com blocos [[di]], [[do]], [[ai]] e [[ao]].\n');
+  // Formato antigo de tela, nao lido por ninguem; so sobrevive como exemplo.
+  fs.rmSync(path.join(target, 'panel', 'painel.toml'), { force: true });
+  const cenarios = path.join(target, 'tests', 'cenarios.yaml');
+  if (fs.existsSync(cenarios)) fs.writeFileSync(cenarios, `name: ${name}\nscenarios: []\n`);
+  fs.writeFileSync(path.join(target, 'README.md'),
+    `# ${name}\n\nProjeto PLC Codex vazio. Adicione POUs em \`programs/\` e \`blocks/\`,\n` +
+    'tipos em `types/` e variaveis globais em `globals/`, ou importe um PLCopenXML\n' +
+    'do fabricante pelo botao de importar do projeto.\n');
+}
+
+// Reaproveita o programa principal detectado pelo importador e carimba o nome
+// da pasta no plc.toml, para o build achar a tarefa sem edicao manual.
+function applyImportedManifest(target) {
+  const imported = JSON.parse(fs.readFileSync(path.join(target, 'plcopen', 'manifest.json'), 'utf8'));
+  const main = imported.pous.find(item => item.name.toLowerCase().includes('main') && item.type === 'program')
+    || imported.pous.find(item => item.type === 'program');
+  let manifest = fs.readFileSync(path.join(target, 'plc.toml'), 'utf8')
+    .replace(/^name\s*=.*$/m, `name = "${path.basename(target).replace(/"/g, '')}"`);
+  if (main) manifest = manifest.replace(/^program\s*=.*$/m, `program = "${main.name}"`);
+  fs.writeFileSync(path.join(target, 'plc.toml'), manifest);
+  return imported;
+}
+
+async function reportImport(target, imported) {
+  const diagnostics = imported.diagnostics || {};
+  const pending = (diagnostics.unresolvedTypes?.length || 0) + (diagnostics.unresolvedBlocks?.length || 0);
+  await openImportReport(target);
+  const summary = `${imported.pous.length} POUs em ST, ${imported.dataTypes.length} DUTs, ${imported.globalVars.length} GVLs`;
+  if (pending) vscode.window.showWarningMessage(`XML importado: ${summary}. ${pending} dependências pendentes; consulte o relatório aberto.`);
+  else vscode.window.showInformationMessage(`XML importado e pronto: ${summary}.`);
+}
+
 async function chooseNewProjectTarget(title) {
   const selected = await vscode.window.showOpenDialog({ title, canSelectFolders: true, canSelectFiles: false, canSelectMany: false, openLabel: 'Usar esta pasta' });
   if (!selected?.length) return undefined;
@@ -1645,6 +1704,7 @@ async function activate(context) {
         const target = await chooseNewProjectTarget('Pasta onde o novo projeto PLC será criado');
         if (!target) return;
         copyProjectTemplate(context, target);
+        resetProjectContent(target);
         const name = path.basename(target).replace(/"/g, '');
         const manifest = fs.readFileSync(path.join(target, 'plc.toml'), 'utf8').replace(/^name\s*=.*$/m, `name = "${name}"`);
         fs.writeFileSync(path.join(target, 'plc.toml'), manifest);
@@ -1663,42 +1723,44 @@ async function activate(context) {
         const target = await chooseNewProjectTarget('Pasta onde o projeto importado será criado');
         if (!target) return;
         copyProjectTemplate(context, target);
-        for (const folder of ['types','functions','blocks','globals','programs','routines']) {
-          const full = path.join(target, folder);
-          fs.rmSync(full, { recursive: true, force: true });
-          fs.mkdirSync(full, { recursive: true });
-        }
-        fs.writeFileSync(path.join(target, 'panel', 'painel.json'), JSON.stringify({
-          version: 1,
-          title: `${path.basename(target)} — mapeamento pendente`,
-          display: { realPrecision: 2, theme: 'light' },
-          areas: { monitoring: [], ihm: [], panel: [], interface: [], field: [] }
-        }, null, 2) + '\n');
-        fs.writeFileSync(path.join(target, 'panel', 'pid.json'), JSON.stringify({
-          version: 1,
-          title: `${path.basename(target)} — P&ID pendente`,
-          display: { realPrecision: 2, theme: 'light' },
-          items: []
-        }, null, 2) + '\n');
+        resetProjectContent(target);
         output.show(true);
         output.appendLine(`\n=== IMPORTAR PLCopenXML: ${picked[0].fsPath} ===`);
         await runProcess('python3', [path.join(target, 'runtime', 'import_plcopenxml.py'), picked[0].fsPath, target, '--active'], target);
-        const imported = JSON.parse(fs.readFileSync(path.join(target, 'plcopen', 'manifest.json'), 'utf8'));
-        const main = imported.pous.find(item => item.name.toLowerCase().includes('main') && item.type === 'program') || imported.pous.find(item => item.type === 'program');
-        let manifest = fs.readFileSync(path.join(target, 'plc.toml'), 'utf8').replace(/^name\s*=.*$/m, `name = "${path.basename(target).replace(/"/g, '')}"`);
-        if (main) manifest = manifest.replace(/^program\s*=.*$/m, `program = "${main.name}"`);
-        fs.writeFileSync(path.join(target, 'plc.toml'), manifest);
+        const imported = applyImportedManifest(target);
         activeProject = target;
         await rememberProject(target);
         await context.workspaceState.update('plcCodex.activeProject', target);
         await context.globalState.update('plcCodex.activeProject', target);
         refreshUi();
-        const diagnostics = imported.diagnostics || {};
-        const pending = (diagnostics.unresolvedTypes?.length || 0) + (diagnostics.unresolvedBlocks?.length || 0);
-        await openImportReport(target);
-        const summary = `${imported.pous.length} POUs em ST, ${imported.dataTypes.length} DUTs, ${imported.globalVars.length} GVLs`;
-        if (pending) vscode.window.showWarningMessage(`XML importado: ${summary}. ${pending} dependências pendentes; consulte o relatório aberto.`);
-        else vscode.window.showInformationMessage(`XML importado e pronto: ${summary}.`);
+        await reportImport(target, imported);
+      } catch (error) { vscode.window.showErrorMessage(`Importação cancelada: ${error.message}`); output.show(true); }
+    }),
+    // Importar para dentro de um projeto que ja existe. Antes so havia o caminho
+    // que cria uma pasta nova, entao um projeto vazio nao tinha como receber XML.
+    vscode.commands.registerCommand('plcCodex.importXmlInto', async item => {
+      const requested = typeof item === 'string' ? item : item?.project;
+      const root = requested || await requireProject(context);
+      if (!root) return;
+      try {
+        const picked = await vscode.window.showOpenDialog({ title: 'Selecione o PLCopenXML exportado pelo fabricante', canSelectFiles: true, canSelectFolders: false, canSelectMany: false, filters: { PLCopenXML: ['xml'] }, openLabel: 'Importar XML' });
+        if (!picked?.length) return;
+        const confirm = await vscode.window.showWarningMessage(
+          `Importar substitui todos os fontes de ${path.basename(root)}: ${PROJECT_SOURCE_FOLDERS.join(', ')}, o mapa de I/O e as telas.`,
+          { modal: true }, 'Substituir fontes'
+        );
+        if (confirm !== 'Substituir fontes') return;
+        resetProjectContent(root);
+        output.show(true);
+        output.appendLine(`\n=== IMPORTAR PLCopenXML EM ${path.basename(root)}: ${picked[0].fsPath} ===`);
+        await runProcess('python3', [path.join(root, 'runtime', 'import_plcopenxml.py'), picked[0].fsPath, root, '--active'], root);
+        const imported = applyImportedManifest(root);
+        activeProject = root;
+        await rememberProject(root);
+        await context.workspaceState.update('plcCodex.activeProject', root);
+        await context.globalState.update('plcCodex.activeProject', root);
+        refreshUi();
+        await reportImport(root, imported);
       } catch (error) { vscode.window.showErrorMessage(`Importação cancelada: ${error.message}`); output.show(true); }
     }),
     vscode.commands.registerCommand('plcCodex.refreshVariables', () => variablesView.refresh()),
