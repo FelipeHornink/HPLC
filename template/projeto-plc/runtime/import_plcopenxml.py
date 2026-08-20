@@ -373,8 +373,33 @@ def render_data_type(data_type):
     return f"TYPE {name} : {render_type(base)};\nEND_TYPE\n"
 
 
+# Atributos de editor nao pertencem ao codigo: guardam ordem na tela e checksum.
+GVL_EDITOR_ATTRIBUTES = {"order_in_persistent_editor", "checksumnoinit_override", "init_related_code"}
+
+
+def gvl_pragmas(gvl):
+    """Pragmas CODESYS da GVL, como {attribute 'qualified_only'}.
+
+    O nome da lista nao existe no texto ST, mas o pragma existe e decide se o
+    codigo precisa escrever Field.AO ou pode escrever AO. Sem ele o arquivo
+    deixa de ser colavel de volta no MasterTool com o mesmo comportamento.
+    """
+    lines = []
+    for attribute in gvl.iter():
+        if local(attribute) != "Attribute":
+            continue
+        name = attribute.get("Name")
+        if not name or name in GVL_EDITOR_ATTRIBUTES:
+            continue
+        value = attribute.get("Value") or ""
+        lines.append(f"{{attribute '{name}' := '{value}'}}" if value else f"{{attribute '{name}'}}")
+    return lines
+
+
 def render_gvl(gvl):
-    lines = [f"(* GVL original: {gvl.get('name', 'sem nome')} *)", "VAR_GLOBAL"]
+    lines = [f"(* GVL original: {gvl.get('name', 'sem nome')} *)"]
+    lines.extend(gvl_pragmas(gvl))
+    lines.append("VAR_GLOBAL")
     lines.extend(variable_line(variable) for variable in gvl if local(variable) == "variable")
     lines.append("END_VAR")
     return "\n".join(lines) + "\n"
