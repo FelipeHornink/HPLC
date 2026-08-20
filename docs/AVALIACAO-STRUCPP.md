@@ -70,3 +70,33 @@ como qualquer ferramenta externa.
 - https://github.com/Autonomy-Logic/STruCpp
 - https://github.com/Autonomy-Logic/xml2st — transpilador PLCopen XML para ST,
   fork do Beremiz; vale como referencia para o conversor LD/FBD do importador.
+
+## Medicao das GVLs do 4817_funcional_A
+
+O XML traz **25 GVLs** com membros, organizadas em trincas: a imagem que a logica
+usa, a versao simulada com prefixo `S` e a fisica com prefixo `R`.
+
+`Field`/`SField`/`RField`, `Saida`/`SSaida`/`RSaida`,
+`SaidaAnalogica`/`SSaidaAnalogica`/`RSaidaAnalogica`, mais `cmd`, `Reten`,
+`Status`, `IHM`, `Estado`, `NETcmd`, `TREND` e `Debug`.
+
+**37 nomes de membro se repetem em mais de uma GVL.** Alem das trincas, ha
+colisao entre familias: `ALIVIO_MANUAL` esta em `cmd` e `IHM`,
+`COMPRESSOR_LIGADO` em `Saida` e `Status`, `ESTADO_COMPRESSOR` em `Status` e
+`IHM`. Achatar tudo num `VAR_GLOBAL` unico e impossivel.
+
+Varrendo `programs/` e `blocks/` sem comentarios: **908 referencias a membro de
+GVL, todas na forma qualificada** (`field.DI[0]`, `Reten.ResumoTrip`). Zero
+referencias sem o nome da GVL. Os quatro casos que pareciam soltos eram
+`field.Transmissor[i].AlarmEnable`, ou seja campo de struct, nao GVL.
+
+Consequencia: gerar uma struct por GVL e uma variavel global com o nome dela
+resolve tudo sem tocar em nenhuma linha da logica. A conversao e mecanica.
+
+Casos de borda testados no STruC++, todos aceitos:
+
+| Caso | Resultado |
+|---|---|
+| membro `Range` cujo tipo tambem se chama `Range` | aceita (no MATIEC exigia renomear) |
+| GVL sem membros virando struct vazia | aceita |
+| tipo de biblioteca com o ponto achatado (`LibDataTypes_QUALITY`) | aceita |
