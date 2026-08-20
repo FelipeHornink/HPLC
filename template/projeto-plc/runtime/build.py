@@ -102,8 +102,14 @@ def append(line="", source=None, source_line=None, kind=None):
         }
 
 
+POU_HEADER = re.compile(r"^\s*(?:PROGRAM|FUNCTION_BLOCK|FUNCTION)\b", re.I)
+
+
 def append_source(source, kind, inject_external=False):
     source_lines = source.read_text(encoding="utf-8").splitlines()
+    # POU sem bloco VAR precisa receber o VAR_EXTERNAL logo apos o cabecalho;
+    # so um diagrama vazio como StartPrg cai nesse caso.
+    has_var_block = any(re.match(r"^\s*VAR(?:_|\b)", line, re.I) for line in source_lines)
     injected = False
     for number, line in enumerate(source_lines, 1):
         routine_match = re.match(r"^\s*\(\*\s*@ROUTINE\s+([^*]+?)\s*\*\)\s*$", line)
@@ -118,6 +124,10 @@ def append_source(source, kind, inject_external=False):
             append()
             continue
         append(line, source, number, kind)
+        if inject_external and not injected and not has_var_block and POU_HEADER.match(line):
+            for generated in external_lines:
+                append(generated)
+            injected = True
         if inject_external and not injected and re.match(r"^\s*END_VAR\b", line, re.I):
             for generated in external_lines:
                 append(generated)
@@ -126,16 +136,19 @@ def append_source(source, kind, inject_external=False):
     return injected
 
 
+# Toda POU que nao seja tipo recebe VAR_EXTERNAL. Injetar so na primeira, como
+# antes, funcionava para o projeto de exemplo com um unico Main, mas deixava as
+# demais POUs de um projeto importado sem enxergar as variaveis globais.
 for folder in ("types", "functions", "blocks"):
     for source in ordered_type_files() if folder == "types" else files(folder):
-        append_source(source, folder)
+        append_source(source, folder, folder != "types")
 
 external_injected = False
 for source in files("programs"):
-    injected = append_source(source, "programs", not external_injected)
+    injected = append_source(source, "programs", True)
     external_injected = external_injected or injected
 if not external_injected:
-    raise SystemExit("O primeiro PROGRAM não possui bloco VAR/END_VAR para VAR_EXTERNAL.")
+    raise SystemExit("Nenhum PROGRAM recebeu VAR_EXTERNAL; verifique os fontes em programs/.")
 
 append("CONFIGURATION Config0")
 append("VAR_GLOBAL")

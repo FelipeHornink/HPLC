@@ -373,6 +373,119 @@ def render_data_type(data_type):
     return f"TYPE {name} : {render_type(base)};\nEND_TYPE\n"
 
 
+def collect_globals(root):
+    """Mapa GVL -> membros, na ordem do XML, mesclando GVLs de nome repetido."""
+    # Uma mesma GVL pode aparecer em mais de um resource do XML, repetindo
+    # membros. Mescla mantendo a primeira ocorrencia de cada nome.
+    listas = {}
+    vistos = {}
+    for gvl in (item for item in root.iter() if local(item) == "globalVars"):
+        nome = gvl.get("name") or "GlobalVars"
+        alvo = listas.setdefault(nome, [])
+        conhecidos = vistos.setdefault(nome, set())
+        for variable in gvl:
+            if local(variable) != "variable":
+                continue
+            membro = (variable.get("name") or "").upper()
+            if membro in conhecidos:
+                continue
+            conhecidos.add(membro)
+            alvo.append(variable)
+    return listas
+
+
+def flatten_name(gvl_name, member):
+    return f"{gvl_name}_{member}"
+
+
+QUALIFICADO = re.compile(r"\b([A-Za-z_]\w*)\s*\.\s*([A-Za-z_]\w*)\b")
+IDENTIFICADOR = re.compile(r"(?<![.\w])([A-Za-z_]\w*)")
+
+
+def declared_names(source):
+    nomes = set()
+    for bloco in re.findall(r"\bVAR(?:_\w+)?\b(.*?)\bEND_VAR\b", source, re.S | re.I):
+        for pedaco in bloco.split(";"):
+            m = re.match(r"\s*([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*(?:\bAT\b\s*%\S+\s*)?:", pedaco)
+            if m:
+                nomes.update(x.strip().upper() for x in m.group(1).split(","))
+    return nomes
+
+
+def split_body(source):
+    """Separa declaracoes do corpo executavel, para nao renomear locais."""
+    fim = 0
+    for m in re.finditer(r"\bEND_VAR\b", source, re.I):
+        fim = m.end()
+    if fim:
+        return source[:fim], source[fim:]
+    quebra = source.find("\n")
+    return (source[:quebra + 1], source[quebra + 1:]) if quebra >= 0 else (source, "")
+
+
+def qualified_rewriter(listas, ambiguos_encontrados):
+    """Achata o acesso a variavel global no codigo.
+
+    Field.AO vira Field_AO. Membro de struct e de instancia de FB nao e tocado,
+    porque o prefixo precisa ser o nome de uma GVL conhecida e o sufixo um
+    membro dela. Referencia sem prefixo, como Pulse_1s, tambem e renomeada,
+    mas so quando o nome pertence a uma unica GVL e nao e local da POU.
+    """
+    indice = {}
+    donos = {}
+    for gvl_name, variables in listas.items():
+        for variable in variables:
+            membro = variable.get("name")
+            if not membro:
+                continue
+            indice[(gvl_name.upper(), membro.upper())] = flatten_name(gvl_name, membro)
+            donos.setdefault(membro.upper(), []).append((gvl_name, membro))
+    unico = {chave: flatten_name(*par[0]) for chave, par in donos.items() if len(par) == 1}
+    ambiguos = {chave for chave, par in donos.items() if len(par) > 1}
+
+    def trocar(source):
+        source = QUALIFICADO.sub(
+            lambda m: indice.get((m.group(1).upper(), m.group(2).upper()), m.group(0)),
+            source,
+        )
+        cabecalho, corpo = split_body(source)
+        locais = declared_names(source)
+
+        def nu(m):
+            chave = m.group(1).upper()
+            if chave in locais:
+                return m.group(1)
+            if chave in ambiguos:
+                ambiguos_encontrados.add(m.group(1))
+                return m.group(1)
+            return unico.get(chave, m.group(1))
+
+        return cabecalho + IDENTIFICADOR.sub(nu, corpo)
+
+    return trocar
+
+
+def render_flat_globals(listas):
+    """Uma unica GVL, secoes separadas por comentario.
+
+    Sem o nome da GVL o ST vira IEC padrao e compila em qualquer lugar; o
+    prefixo mantem unicos os 37 nomes que se repetem entre as listas do
+    fabricante, e o comentario preserva de qual lista cada bloco veio.
+    """
+    lines = ["(* Variaveis globais do projeto.",
+             "   Uma unica GVL, com as listas do fabricante separadas por comentario.",
+             "   Cada nome carrega o prefixo da lista de origem. *)",
+             "VAR_GLOBAL"]
+    for gvl_name, variables in listas.items():
+        lines.append("")
+        lines.append(f"    (* ===== {gvl_name} ===== *)")
+        for variable in variables:
+            linha = variable_line(variable).lstrip()
+            lines.append("    " + linha.replace(variable.get("name"), flatten_name(gvl_name, variable.get("name")), 1))
+    lines.append("END_VAR")
+    return "\n".join(lines) + "\n"
+
+
 # Atributos de editor nao pertencem ao codigo: guardam ordem na tela e checksum.
 GVL_EDITOR_ATTRIBUTES = {"order_in_persistent_editor", "checksumnoinit_override", "init_related_code"}
 
@@ -420,9 +533,13 @@ def main():
         shutil.copy2(args.xml, output / "plcopen" / "original.xml")
 
     manifest = {"source": str(args.xml), "pous": [], "dataTypes": [], "globalVars": [], "libraries": [], "diagnostics": {}}
+    listas_globais = collect_globals(root)
+    ambiguos_sem_prefixo = set()
+    reescrever = qualified_rewriter(listas_globais, ambiguos_sem_prefixo)
     pous = [item for item in root.iter() if local(item) == "pou"]
     for index, pou in enumerate(pous, 1):
         source, body_kind, body = render_pou(pou)
+        source = reescrever(source)
         stem = f"{index:02d}_{safe_name(pou.get('name'))}"
         folder = {"program": "programs", "functionBlock": "blocks", "function": "functions"}.get(pou.get("pouType"), "programs") if args.active else "pous"
         filename = f"{stem}.st"
@@ -437,12 +554,18 @@ def main():
         (output / "types" / filename).write_text(render_data_type(data_type), encoding="utf-8")
         manifest["dataTypes"].append({"name": data_type.get("name"), "file": f"types/{filename}"})
 
-    gvls = [item for item in root.iter() if local(item) == "globalVars"]
-    for index, gvl in enumerate(gvls, 1):
-        name = gvl.get("name") or f"GVL_{index}"
-        filename = f"{index:02d}_{safe_name(name)}.st"
-        (output / "globals" / filename).write_text(render_gvl(gvl), encoding="utf-8")
-        manifest["globalVars"].append({"name": name, "file": f"globals/{filename}"})
+    filename = "00_GlobalVars.st"
+    (output / "globals" / filename).write_text(render_flat_globals(listas_globais), encoding="utf-8")
+    for name, variables in listas_globais.items():
+        manifest["globalVars"].append({
+            "name": name,
+            "file": f"globals/{filename}",
+            "prefix": f"{name}_",
+            "members": [variable.get("name") for variable in variables],
+        })
+    manifest["globalsLayout"] = "flat"
+    if ambiguos_sem_prefixo:
+        manifest["ambiguousGlobals"] = sorted(ambiguos_sem_prefixo)
 
     libraries = []
     for item in root.iter():
@@ -477,7 +600,7 @@ def main():
         report = [
             f"# Relatório de importação — {args.xml.name}", "",
             f"**Status:** {'PENDÊNCIAS DE COMPATIBILIDADE' if diagnostic['status'] == 'pending' else 'PRONTO'}", "",
-            f"- {len(pous)} POUs importadas em ST", f"- {len(data_types)} DUTs", f"- {len(gvls)} GVLs",
+            f"- {len(pous)} POUs importadas em ST", f"- {len(data_types)} DUTs", f"- {len(listas_globais)} GVLs",
             f"- {len(conversions)} conversões LD/FBD → ST", f"- {len(libraries)} referências de biblioteca preservadas", "",
             "## Conversões para ST", "",
             *([f"- `{item['name']}`: {item['from']} → ST (`{item['file']}`)" for item in conversions] or ["- Nenhuma; todas as POUs já eram ST."]), "",
@@ -494,7 +617,7 @@ Fonte: `{args.xml}`
 
 - {len(pous)} POUs ({sum(1 for p in manifest['pous'] if p['originalLanguage'] == 'ST')} originalmente ST e {sum(1 for p in manifest['pous'] if p['originalLanguage'] != 'ST')} convertidas para ST)
 - {len(data_types)} DUTs
-- {len(gvls)} GVLs
+- {len(listas_globais)} GVLs
 
 Todos os arquivos ativos são Structured Text. Diagramas LD/FBD foram convertidos
 para ST durante a importação quando `--active` foi usado.
@@ -502,7 +625,7 @@ O XML original continua sendo a autoridade para IDs, configuração do dispositi
 extensões específicas do MasterTool.
 """
     (output / ("plcopen/README.md" if args.active else "README.md")).write_text(readme, encoding="utf-8")
-    print(f"Importados {len(pous)} POUs, {len(data_types)} DUTs e {len(gvls)} GVLs em {output}")
+    print(f"Importados {len(pous)} POUs, {len(data_types)} DUTs e {len(listas_globais)} GVLs em {output}")
 
 
 if __name__ == "__main__":
