@@ -115,40 +115,246 @@ def render_pou(pou):
     return "\n".join(lines) + "\n", body_kind, body
 
 
-def graphical_to_st(graphic, pou_name):
-    """Converte chamadas de blocos LD/FBD em ST mantendo a ordem do XML.
+LADDER_UNSUPPORTED = {"jump", "return", "selectionDivergence", "simultaneousDivergence",
+                      "selectionConvergence", "simultaneousConvergence"}
 
-    Redes booleanas ainda não suportadas falham explicitamente; nunca produzimos
-    uma implementação vazia fingindo que a conversão deu certo.
+# Funcoes padrao IEC desenhadas como bloco no ladder. Elas nao sao instancias:
+# chamar MOVE(In2 := 0, Out2 => X) nao existe em ST, o equivalente e X := 0.
+# O MasterTool numera os pinos a partir de In2/Out1, porque In1 e o EN.
+STANDARD_BINARY = {"ADD": "+", "SUB": "-", "MUL": "*", "DIV": "/", "MOD": "MOD",
+                   "GT": ">", "GE": ">=", "LT": "<", "LE": "<=", "EQ": "=", "NE": "<>",
+                   "AND": "AND", "OR": "OR", "XOR": "XOR"}
+STANDARD_COPY = {"MOVE"}
+STANDARD_UNARY = {"NOT"}
+# Resultado booleano: a energia do rung tem de entrar no valor, senao a condicao
+# a montante do comparador se perde ao encadear no bloco seguinte.
+BOOLEAN_RESULT = {"GT", "GE", "LT", "LE", "EQ", "NE", "AND", "OR", "XOR", "NOT"}
+
+
+def standard_function(block):
+    name = (block.get("typeName") or "").upper()
+    if block.get("instanceName"):
+        return None
+    return name if name in STANDARD_BINARY or name in STANDARD_COPY or name in STANDARD_UNARY else None
+
+
+def pin_order(formal):
+    digits = re.sub(r"\D", "", formal or "")
+    return int(digits) if digits else 0
+
+
+def block_enable(block, nodes, pou_name, visiting):
+    inputs = child(block, "inputVariables")
+    enable = next((item for item in (list(inputs) if inputs is not None else [])
+                   if item.get("formalParameter") == "EN"), None)
+    if enable is None:
+        return None
+    return rung_expression(enable, nodes, pou_name, visiting)
+
+
+def function_arguments(block, nodes, pou_name, visiting):
+    inputs = child(block, "inputVariables")
+    ordered = []
+    for variable in (list(inputs) if inputs is not None else []):
+        formal = variable.get("formalParameter")
+        if formal is None or formal == "EN":
+            continue
+        ordered.append((pin_order(formal), rung_expression(variable, nodes, pou_name, visiting)))
+    return [expression for _, expression in sorted(ordered, key=lambda item: item[0]) if expression]
+
+
+def function_expression(block, nodes, pou_name, visiting):
+    name = standard_function(block)
+    arguments = function_arguments(block, nodes, pou_name, visiting)
+    if not arguments:
+        raise ValueError(f"POU {pou_name}: funcao {name} sem entradas ligadas")
+    if name in STANDARD_COPY:
+        return arguments[0]
+    if name in STANDARD_UNARY:
+        return f"NOT ({arguments[0]})"
+    if len(arguments) < 2:
+        raise ValueError(f"POU {pou_name}: funcao {name} com apenas uma entrada ligada")
+    return "(" + f" {STANDARD_BINARY[name]} ".join(arguments) + ")"
+
+
+def function_targets(block):
+    outputs = child(block, "outputVariables")
+    targets = []
+    for variable in (list(outputs) if outputs is not None else []):
+        if variable.get("formalParameter") in {None, "ENO"}:
+            continue
+        point = child(variable, "connectionPointOut")
+        expression = child(point, "expression") if point is not None else None
+        text = (expression.text or "").strip() if expression is not None else ""
+        if text:
+            targets.append(text)
+    return targets
+
+
+def incoming(node):
+    """Ligacoes que chegam num elemento. Varias ligacoes significam paralelo."""
+    point = child(node, "connectionPointIn")
+    if point is None:
+        return []
+    return [(item.get("refLocalId"), item.get("formalParameter"))
+            for item in point if local(item) == "connection"]
+
+
+def join_terms(terms, operator):
+    terms = [term for term in terms if term]
+    if not terms:
+        return None
+    if len(terms) == 1:
+        return terms[0]
+    return "(" + f" {operator} ".join(terms) + ")"
+
+
+def rung_expression(node, nodes, pou_name, visiting=frozenset()):
+    """Expressao booleana que chega na entrada do elemento; paralelo vira OR."""
+    return join_terms(
+        [node_expression(ref, formal, nodes, pou_name, visiting) for ref, formal in incoming(node)],
+        "OR",
+    )
+
+
+def node_expression(local_id, formal, nodes, pou_name, visiting):
+    node = nodes.get(local_id)
+    if node is None:
+        return None
+    if local_id in visiting:
+        raise ValueError(f"POU {pou_name}: rede LD com realimentacao no elemento {local_id}")
+    kind = local(node)
+    if kind == "leftPowerRail":
+        return "TRUE"
+    if kind == "inVariable":
+        expression = child(node, "expression")
+        text = (expression.text or "").strip() if expression is not None else ""
+        return text or None
+    if kind == "block":
+        instance = node.get("instanceName") or node.get("typeName")
+        name = standard_function(node)
+        if name and formal != "ENO":
+            value = function_expression(node, nodes, pou_name, visiting | {local_id})
+            if name not in BOOLEAN_RESULT:
+                return value
+            enable = block_enable(node, nodes, pou_name, visiting | {local_id})
+            return join_terms([None if enable in (None, "TRUE") else enable, value], "AND")
+        if formal == "ENO":
+            # Em bloco padrao a energia atravessa: ENO acompanha EN. Encadear
+            # MOVE em serie no ladder e so continuar a mesma condicao de rung.
+            inputs = child(node, "inputVariables")
+            enable = next((item for item in (list(inputs) if inputs is not None else [])
+                           if item.get("formalParameter") == "EN"), None)
+            if enable is None:
+                return "TRUE"
+            return rung_expression(enable, nodes, pou_name, visiting | {local_id}) or "TRUE"
+        if not formal:
+            raise ValueError(f"POU {pou_name}: ligacao sem parametro formal na saida do bloco {instance}")
+        return f"{instance}.{formal}"
+    upstream = rung_expression(node, nodes, pou_name, visiting | {local_id})
+    if kind == "contact":
+        variable = child(node, "variable")
+        name = (variable.text or "").strip() if variable is not None else ""
+        if not name:
+            raise ValueError(f"POU {pou_name}: contato {local_id} sem variavel")
+        term = f"NOT {name}" if node.get("negated") == "true" else name
+        return join_terms([None if upstream == "TRUE" else upstream, term], "AND")
+    return upstream
+
+
+def negate(expression):
+    return f"NOT {expression}" if expression.startswith("(") else f"NOT ({expression})"
+
+
+def coil_statements(coil, nodes, pou_name):
+    variable = child(coil, "variable")
+    name = (variable.text or "").strip() if variable is not None else ""
+    if not name:
+        raise ValueError(f"POU {pou_name}: bobina {coil.get('localId')} sem variavel")
+    expression = rung_expression(coil, nodes, pou_name) or "FALSE"
+    if coil.get("negated") == "true":
+        expression = negate(expression)
+    storage = (coil.get("storage") or "").lower()
+    if storage in {"set", "reset"}:
+        return [f"IF {expression} THEN", f"    {name} := {'TRUE' if storage == 'set' else 'FALSE'};", "END_IF;"]
+    return [f"{name} := {expression};"]
+
+
+def block_statements(block, nodes, pou_name):
+    block_type = block.get("typeName", "")
+    instance = block.get("instanceName") or block_type
+    name = standard_function(block)
+    if name:
+        targets = function_targets(block)
+        if not targets:
+            # Sem destino, a funcao so alimenta o elemento seguinte: ela vira
+            # expressao inline la, e aqui nao gera instrucao nenhuma.
+            return []
+        value = function_expression(block, nodes, pou_name, frozenset())
+        enable = block_enable(block, nodes, pou_name, frozenset())
+        lines = [f"{target} := {value};" for target in targets]
+        if enable in (None, "TRUE"):
+            return lines
+        return [f"IF {enable} THEN", *(f"    {line}" for line in lines), "END_IF;"]
+    arguments = []
+    enable = None
+    inputs = child(block, "inputVariables")
+    for variable in list(inputs) if inputs is not None else []:
+        formal = variable.get("formalParameter")
+        if formal is None:
+            continue
+        expression = rung_expression(variable, nodes, pou_name)
+        # EN nao e argumento: ele condiciona a chamada. Ignora-lo faria o bloco
+        # rodar todo ciclo, mudando a logica da maquina em silencio.
+        if formal == "EN":
+            enable = expression
+            continue
+        if expression:
+            arguments.append(f"{formal} := {expression}")
+    outputs = child(block, "outputVariables")
+    for variable in list(outputs) if outputs is not None else []:
+        formal = variable.get("formalParameter")
+        if formal in {None, "ENO"}:
+            continue
+        point = child(variable, "connectionPointOut")
+        expression = child(point, "expression") if point is not None else None
+        if expression is not None and (expression.text or "").strip():
+            arguments.append(f"{formal} => {expression.text.strip()}")
+    call = f"{instance}({', '.join(arguments)});"
+    if enable in (None, "TRUE"):
+        return [call]
+    return [f"IF {enable} THEN", f"    {call}", "END_IF;"]
+
+
+def out_variable_statements(node, nodes, pou_name):
+    expression = child(node, "expression")
+    name = (expression.text or "").strip() if expression is not None else ""
+    value = rung_expression(node, nodes, pou_name)
+    if not name or not value:
+        return []
+    return [f"{name} := {value};"]
+
+
+def graphical_to_st(graphic, pou_name):
+    """Converte a rede LD/FBD em ST preservando a ordem do XML.
+
+    Contatos em serie viram AND, ligacoes paralelas viram OR, bobinas viram
+    atribuicao e o EN de cada bloco vira IF. O que nao tem equivalente direto,
+    como jump e divergencia, falha explicitamente: nunca produzimos uma
+    implementacao incompleta fingindo que a conversao deu certo.
     """
     nodes = {item.get("localId"): item for item in graphic if item.get("localId")}
-    unsupported = [local(item) for item in graphic if local(item) in {"contact", "coil", "jump", "return", "selectionDivergence", "simultaneousDivergence"}]
+    unsupported = sorted({local(item) for item in graphic if local(item) in LADDER_UNSUPPORTED})
     if unsupported:
-        raise ValueError(f"POU {pou_name}: rede {unsupported[0]} ainda não suportada pelo conversor LD/FBD")
+        raise ValueError(f"POU {pou_name}: rede {unsupported[0]} ainda nao suportada pelo conversor LD/FBD")
+    handlers = {"block": block_statements, "coil": coil_statements, "outVariable": out_variable_statements}
     statements = []
-    for block in (item for item in graphic if local(item) == "block"):
-        block_type = block.get("typeName", "")
-        instance = block.get("instanceName") or block_type
-        arguments = []
-        inputs = child(block, "inputVariables")
-        for variable in list(inputs) if inputs is not None else []:
-            formal = variable.get("formalParameter")
-            if formal in {None, "EN"}: continue
-            point = child(variable, "connectionPointIn")
-            connection = child(point, "connection") if point is not None else None
-            source = nodes.get(connection.get("refLocalId")) if connection is not None else None
-            expression = child(source, "expression").text if source is not None and child(source, "expression") is not None else None
-            if expression and expression.strip(): arguments.append(f"{formal} := {expression.strip()}")
-        outputs = child(block, "outputVariables")
-        for variable in list(outputs) if outputs is not None else []:
-            formal = variable.get("formalParameter")
-            if formal in {None, "ENO"}: continue
-            point = child(variable, "connectionPointOut")
-            expression = child(point, "expression") if point is not None else None
-            if expression is not None and (expression.text or "").strip(): arguments.append(f"{formal} => {expression.text.strip()}")
-        statements.append(f"{instance}({', '.join(arguments)});")
+    for item in graphic:
+        handler = handlers.get(local(item))
+        if handler:
+            statements.extend(handler(item, nodes, pou_name))
     if not statements:
-        return f"(* {pou_name}: diagrama original sem lógica executável. *)"
+        return f"(* {pou_name}: diagrama original sem logica executavel. *)"
     return "(* Convertido automaticamente de LD/FBD para ST. *)\n" + "\n".join(statements)
 
 
@@ -222,7 +428,14 @@ def main():
     defined = {item.get("name", "").lower() for item in root.iter() if local(item) in {"pou", "dataType"}}
     builtins = {"BOOL","BYTE","WORD","DWORD","LWORD","SINT","USINT","INT","UINT","DINT","UDINT","LINT","ULINT","REAL","LREAL","TIME","DATE","TOD","DT","STRING","WSTRING","TON","TOF","TP","R_TRIG","F_TRIG","CTU","CTD","CTUD"}
     unresolved_types = sorted({item.get("name") for item in root.iter() if local(item) == "derived" and item.get("name", "").lower() not in defined and item.get("name", "").upper() not in builtins})
-    unresolved_blocks = sorted({item.get("typeName") for item in root.iter() if local(item) == "block" and item.get("typeName", "").lower() not in defined and item.get("typeName", "").upper() not in builtins}, key=str.lower)
+    # Funcoes padrao desenhadas como bloco viram operador em ST na conversao do
+    # ladder, entao nao sao dependencia externa: listá-las aqui era ruido.
+    resolved_by_converter = set(STANDARD_BINARY) | STANDARD_COPY | STANDARD_UNARY
+    unresolved_blocks = sorted({item.get("typeName") for item in root.iter()
+                                if local(item) == "block"
+                                and item.get("typeName", "").lower() not in defined
+                                and item.get("typeName", "").upper() not in builtins
+                                and item.get("typeName", "").upper() not in resolved_by_converter}, key=str.lower)
     conversions = [{"name": item["name"], "from": item["originalLanguage"], "to": "ST", "file": item["file"]} for item in manifest["pous"] if item["originalLanguage"] != "ST"]
     manifest["diagnostics"] = {
         "status": "pending" if unresolved_types or unresolved_blocks else "ready",
