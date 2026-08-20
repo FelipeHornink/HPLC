@@ -100,3 +100,42 @@ Casos de borda testados no STruC++, todos aceitos:
 | membro `Range` cujo tipo tambem se chama `Range` | aceita (no MATIEC exigia renomear) |
 | GVL sem membros virando struct vazia | aceita |
 | tipo de biblioteca com o ponto achatado (`LibDataTypes_QUALITY`) | aceita |
+
+## Por que o nome da GVL nao cabe no ST
+
+O requisito e que os fontes em `programs/`, `blocks/` e `globals/` sejam copiaveis
+direto para o MasterTool, Siemens ou Rockwell. Isso limita o que pode ser escrito
+neles, e a limitacao nao e do nosso ferramental nem do compilador: e da linguagem.
+
+No XML exportado pelo MasterTool a GVL aparece como atributo de um objeto:
+
+```
+project > instances > configurations > configuration > resource > globalVars
+   atributos: {'name': 'Field'}
+   filhos: ['addData', 'variable']
+```
+
+Nao existe corpo ST em nenhuma `globalVars` do XML — verificado no
+`4817_funcional_A.xml`. O nome da gaveta e propriedade do objeto na arvore do
+projeto, nunca texto dentro do ST. Em ST, `VAR_GLOBAL` e anonimo por definicao.
+
+Por isso `Field.AO` nao se resolve a partir do ST sozinho: o texto diz "o AO de
+Field", mas nenhum arquivo ST declara que existe algo chamado `Field`.
+
+Sintaxes testadas no STruC++, todas rejeitadas, porque nenhuma existe na norma:
+
+| Tentativa | Resultado |
+|---|---|
+| `VAR_GLOBAL Field ... END_VAR` | `Expected Colon, found identifier AO` |
+| `NAMESPACE Field ... END_NAMESPACE` | `Expected EOF, found NAMESPACE` |
+| `CONFIGURATION Field` com `VAR_GLOBAL` | `Undeclared variable 'FIELD'` |
+| `RESOURCE Field` com `VAR_GLOBAL` | `Expected END_RESOURCE, found VAR_GLOBAL` |
+
+Consequencia de projeto: pedir suporte a GVL nomeada no compilador nao resolveria,
+porque exigiria inventar sintaxe fora da norma — e ST com sintaxe inventada deixa
+de ser copiavel para o MasterTool, que era o requisito inicial.
+
+A traducao para struct fica onde ja esta previsto no contrato de `platform/`: na
+copia descartavel em `.plcsim/generated/src`. Os fontes oficiais seguem sendo uma
+GVL por arquivo, e a struct gerada recebe o mesmo nome da gaveta, de modo que
+`SField.AI[0]` e o que se le tanto no fonte quanto na depuracao e no painel.
