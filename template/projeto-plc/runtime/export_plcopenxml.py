@@ -14,6 +14,16 @@ PLC = "http://www.plcopen.org/xml/tc6_0200"
 XHTML = "http://www.w3.org/1999/xhtml"
 ET.register_namespace("", PLC)
 
+original_path = ROOT / "plcopen" / "original.xml"
+manifest_source = ROOT / "plcopen" / "manifest.json"
+source_name = original_path.stem if original_path.exists() else "PLC_Codex"
+if manifest_source.exists():
+    try:
+        source_name = Path(json.loads(manifest_source.read_text(encoding="utf-8")).get("source", source_name)).stem
+    except (OSError, ValueError, TypeError):
+        pass
+export_stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", source_name)
+
 def q(name): return f"{{{PLC}}}{name}"
 def files(folder): return sorted((ROOT / folder).glob("*.st")) if (ROOT / folder).exists() else []
 
@@ -42,24 +52,33 @@ def add_type(parent, type_name):
     return t
 
 def declarations(text):
+    """Le declaracoes ST preservando o endereco fisico.
+
+    Variavel alocada aparece como `DG_NX3008 AT %QB20480 : T_DIAG;`. Sem
+    reconhecer o AT, a declaracao inteira era descartada no export e a GVL
+    voltava para o XML sem os membros alocados.
+    """
     result=[]
     for raw in text.splitlines():
-        line=re.sub(r"\(\*.*?\*\)","",raw).strip()
-        m=re.match(r"([A-Za-z_]\w*)\s*:\s*([^;]+);",line)
+        line=re.sub(r"\(\*.*?\*\)","",raw)
+        line=re.sub(r"//[^\n]*","",line).strip()
+        m=re.match(r"([A-Za-z_]\w*)\s*(?:\bAT\b\s*(%[A-Za-z0-9_.*]+)\s*)?:\s*([^;]+);",line,re.I)
         if not m: continue
-        name, spec=m.groups(); parts=spec.split(":=",1)
-        result.append((name,parts[0].strip(),parts[1].strip() if len(parts)>1 else None))
+        name, address, spec=m.groups(); parts=spec.split(":=",1)
+        result.append((name,parts[0].strip(),parts[1].strip() if len(parts)>1 else None,address))
     return result
 
 def add_variable(parent, item):
-    name,type_name,initial=item
-    var=ET.SubElement(parent,q("variable"),{"name":name}); add_type(var,type_name)
+    name,type_name,initial,address=item
+    attributes={"name":name}
+    if address: attributes["address"]=address
+    var=ET.SubElement(parent,q("variable"),attributes); add_type(var,type_name)
     if initial is not None:
         iv=ET.SubElement(var,q("initialValue")); ET.SubElement(iv,q("simpleValue"),{"value":initial})
 
 root=ET.Element(q("project"))
 ET.SubElement(root,q("fileHeader"),{"companyName":"PLC Codex","productName":"PLC Codex Simulator","productVersion":"0.1","creationDateTime":dt.datetime.now(dt.timezone.utc).isoformat()})
-header=ET.SubElement(root,q("contentHeader"),{"name":"Compressor_PLC_Codex","modificationDateTime":dt.datetime.now(dt.timezone.utc).isoformat()})
+header=ET.SubElement(root,q("contentHeader"),{"name":f"{export_stem}_PLC_Codex","modificationDateTime":dt.datetime.now(dt.timezone.utc).isoformat()})
 coord=ET.SubElement(header,q("coordinateInfo"))
 for lang in ("fbd","ld","sfc"):
     ET.SubElement(ET.SubElement(coord,q(lang)),q("scaling"),{"x":"1","y":"1"})
@@ -136,15 +155,15 @@ if original_path.exists() and manifest_path.exists():
         preserved=[copy.deepcopy(x) for x in original_gvl if x.tag.split("}")[-1]!="variable"]
         original_gvl[:] = [copy.deepcopy(x) for x in generated if x.tag.split("}")[-1]=="variable"] + preserved
     tree=original_tree
-    xml_path=OUT/f"{original_path.stem}_PLC_Codex.xml"
+    xml_path=OUT/f"{export_stem}_PLC_Codex.xml"
 else:
     tree=ET.ElementTree(root)
-    xml_path=OUT/"Compressor_PLC_Codex.xml"
+    xml_path=OUT/f"{export_stem}_PLC_Codex.xml"
 ET.indent(tree,space="  "); tree.write(xml_path,encoding="utf-8",xml_declaration=True)
 
 ordered=[]
 for folder in ("types","functions","blocks","globals","programs"):
     for source in files(folder): ordered.append(f"(* ===== {folder}/{source.name} ===== *)\n{source_text(source).strip()}\n")
-bundle=OUT/"Compressor_Completo.st"; bundle.write_text("\n".join(ordered),encoding="utf-8")
+bundle=OUT/f"{export_stem}_Completo.st"; bundle.write_text("\n".join(ordered),encoding="utf-8")
 print(f"PLCopenXML: {xml_path}")
 print(f"ST consolidado: {bundle}")
