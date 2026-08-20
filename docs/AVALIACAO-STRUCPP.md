@@ -139,3 +139,24 @@ A traducao para struct fica onde ja esta previsto no contrato de `platform/`: na
 copia descartavel em `.plcsim/generated/src`. Os fontes oficiais seguem sendo uma
 GVL por arquivo, e a struct gerada recebe o mesmo nome da gaveta, de modo que
 `SField.AI[0]` e o que se le tanto no fonte quanto na depuracao e no painel.
+
+## Compilacao completa do 4817 no STruC++
+
+Alcancada em 2026-08-20. `Compilation successful!`, 773 KB de C++, zero erros e
+dois avisos de conversao implicita que ja existem no codigo do fabricante.
+
+Foi necessario, alem do achatamento das GVLs e do VAR_EXTERNAL em toda POU:
+
+1. **Mover as 4 instancias de TIMER_RET** da GVL `Reten` para dentro do
+   `horimetros`, como `VAR RETAIN`. O STruC++ v0.6.3 nao chama instancia de FB
+   declarada como global: *"Calling a shared function-block global is not yet
+   supported — scalar globals only for now."* Sao os horimetros dos 4 motores;
+   nada na logica le os acumulados, entao a mudanca nao afeta o processo.
+2. **Substituir as 3 chamadas de biblioteca do fabricante** por variaveis do
+   proprio projeto: `SysTimeCore.SysTimeGetUs`, `GetDateAndTime` e
+   `NextoStandard.GetDayOfWeek`. Quem preenche muda por PLC.
+3. **Deixar os 9 structs de diagnostico de hardware fora** do executavel
+   portatil. Eles estao alocados em `%QB` e nao entram na simulacao.
+
+Os passos 1 a 3 ainda estao feitos por script avulso; falta leva-los para o
+importador e para o build.
