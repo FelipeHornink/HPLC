@@ -2,19 +2,48 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD="$ROOT/.plcsim/build"
-MATIEC_ROOT="${MATIEC:-$HOME/.local/matiec}"
+GENERATED="$ROOT/.plcsim/generated/src"
+STRUCPP_ROOT="${STRUCPP:-$HOME/.local/strucpp}"
 
-if [ ! -x "$MATIEC_ROOT/iec2c" ]; then
-  echo "ERRO: compilador matiec não encontrado em $MATIEC_ROOT/iec2c"
+SOURCE_PATHS=("$ROOT/types" "$ROOT/functions" "$ROOT/blocks" "$ROOT/globals" "$ROOT/programs" "$ROOT/routines")
+BUILD_INPUTS=("$ROOT/runtime/build.py" "$ROOT/runtime/prepare_runtime.py" "$ROOT/runtime/generate_variable_catalog.py" "$ROOT/runtime/main.cpp" "$ROOT/plc.toml")
+if [ -x "$BUILD/plc-runtime" ]; then
+  NEED_BUILD=0
+  for input in "${BUILD_INPUTS[@]}"; do
+    if [ -e "$input" ] && [ "$input" -nt "$BUILD/plc-runtime" ]; then NEED_BUILD=1; break; fi
+  done
+  # Diretorios opcionais de plc.toml podem nao existir. Sem filtrar, o find
+  # falha, o pipefail propaga a falha e a checagem de fonte alterada e perdida.
+  EXISTING_SOURCES=()
+  for path in "${SOURCE_PATHS[@]}"; do [ -d "$path" ] && EXISTING_SOURCES+=("$path"); done
+  if [ "$NEED_BUILD" = 0 ] && [ ${#EXISTING_SOURCES[@]} -gt 0 ]; then
+    CHANGED_SOURCE="$(find "${EXISTING_SOURCES[@]}" -type f -newer "$BUILD/plc-runtime" -print -quit)"
+    if [ -n "$CHANGED_SOURCE" ]; then NEED_BUILD=1; fi
+  fi
+  if [ "$NEED_BUILD" = 0 ]; then
+    echo "BUILD OK (cache): $BUILD/plc-runtime"
+    exit 0
+  fi
+fi
+
+if [ ! -x "$STRUCPP_ROOT/strucpp" ]; then
+  echo "ERRO: compilador STruC++ nao encontrado em $STRUCPP_ROOT/strucpp"
   exit 1
 fi
 
 mkdir -p "$BUILD/out"
-python3 "$ROOT/runtime/build.py"
-"$MATIEC_ROOT/iec2c" -O l -I "$MATIEC_ROOT/lib" -T "$BUILD/out" "$BUILD/project.st"
-python3 "$ROOT/runtime/generate_variable_catalog.py"
-python3 "$ROOT/runtime/instrument_debug.py"
-gcc -O2 -w -o "$BUILD/plc-runtime" \
-  "$ROOT/runtime/main.c" "$BUILD/out/Config0.c" "$BUILD/out/Res0.c" \
-  -I"$BUILD" -I"$BUILD/out" -I"$MATIEC_ROOT/lib/C" -lpthread -lm
+python3 "$ROOT/runtime/prepare_runtime.py"
+PLC_CODEX_SOURCE_ROOT="$GENERATED" python3 "$ROOT/runtime/build.py"
+"$STRUCPP_ROOT/strucpp" "$BUILD/project.st" -o "$BUILD/out/project.cpp"
+python3 "$ROOT/runtime/patch_generated.py" "$BUILD/out/project.cpp"
+PLC_CODEX_SOURCE_ROOT="$GENERATED" python3 "$ROOT/runtime/generate_variable_catalog.py"
+# -fpermissive: o STruC++ 0.6.3 declara variavel dentro de case sem chaves,
+# o que o C++ trata como salto sobre inicializacao.
+g++ -std=c++17 -O0 -w -fpermissive -o "$BUILD/plc-runtime" \
+  "$ROOT/runtime/main.cpp" "$BUILD/out/project.cpp" \
+  -I"$BUILD" -I"$BUILD/out" -I"$STRUCPP_ROOT/runtime/include" -lpthread -lm
+# Telas iniciais so na primeira vez; depois o ajuste do usuario prevalece.
+if [ ! -s "$ROOT/panel/painel.json" ] || ! grep -q '"tag"' "$ROOT/panel/painel.json"; then
+  python3 "$ROOT/runtime/generate_panel.py"
+fi
 echo "BUILD OK: $BUILD/plc-runtime"

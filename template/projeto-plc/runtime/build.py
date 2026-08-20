@@ -2,10 +2,13 @@
 """Monta a unidade IEC e o mapa fonte sem alterar os fontes do projeto."""
 from pathlib import Path
 import json
+import os
 import re
 import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
+# O build le a copia portatil preparada, nunca os fontes oficiais do projeto.
+SOURCE_ROOT = Path(os.environ.get("PLC_CODEX_SOURCE_ROOT", ROOT)).resolve()
 BUILD = ROOT / ".plcsim" / "build"
 BUILD.mkdir(parents=True, exist_ok=True)
 
@@ -26,7 +29,7 @@ for value, label in ((main_program, "program"), (task_name, "name")):
 def files(folder):
     if folder not in active_directories:
         return []
-    return sorted((ROOT / folder).glob("*.st"))
+    return sorted((SOURCE_ROOT / folder).glob("*.st"))
 
 
 def ordered_type_files():
@@ -96,7 +99,7 @@ def append(line="", source=None, source_line=None, kind=None):
     unit_lines.append(line)
     if source is not None:
         line_map[str(len(unit_lines))] = {
-            "file": source.relative_to(ROOT).as_posix(),
+            "file": source.relative_to(SOURCE_ROOT).as_posix(),
             "line": source_line,
             "kind": kind,
         }
@@ -107,16 +110,13 @@ POU_HEADER = re.compile(r"^\s*(?:PROGRAM|FUNCTION_BLOCK|FUNCTION)\b", re.I)
 
 def append_source(source, kind, inject_external=False):
     source_lines = source.read_text(encoding="utf-8").splitlines()
-    # POU sem bloco VAR precisa receber o VAR_EXTERNAL logo apos o cabecalho;
-    # so um diagrama vazio como StartPrg cai nesse caso.
-    has_var_block = any(re.match(r"^\s*VAR(?:_|\b)", line, re.I) for line in source_lines)
     injected = False
     for number, line in enumerate(source_lines, 1):
         routine_match = re.match(r"^\s*\(\*\s*@ROUTINE\s+([^*]+?)\s*\*\)\s*$", line)
         if routine_match:
             if "routines" not in active_directories:
                 raise SystemExit("Main referencia rotinas, mas 'routines' não está em source_directories")
-            routine = ROOT / "routines" / routine_match.group(1).strip()
+            routine = SOURCE_ROOT / "routines" / routine_match.group(1).strip()
             if not routine.is_file():
                 raise SystemExit(f"Rotina referenciada não encontrada: {routine}")
             for routine_number, routine_line in enumerate(routine.read_text(encoding="utf-8").splitlines(), 1):
@@ -124,11 +124,9 @@ def append_source(source, kind, inject_external=False):
             append()
             continue
         append(line, source, number, kind)
-        if inject_external and not injected and not has_var_block and POU_HEADER.match(line):
-            for generated in external_lines:
-                append(generated)
-            injected = True
-        if inject_external and not injected and re.match(r"^\s*END_VAR\b", line, re.I):
+        # Antes do VAR proprio da POU: o STruC++ nao aceita VAR_EXTERNAL
+        # intercalado entre blocos de declaracao.
+        if inject_external and not injected and POU_HEADER.match(line):
             for generated in external_lines:
                 append(generated)
             injected = True
@@ -166,38 +164,152 @@ unit = "\n".join(unit_lines) + "\n"
 target = BUILD / "project.st"
 target.write_text(unit, encoding="utf-8")
 
-# Seções comentadas no Main tornam-se rotinas visuais sem alterar o ST exportado.
-section_pattern = re.compile(r"\(\*\s*([0-9/]+)\s*[—-]\s*(.*?)\s*\*\)")
-for folder, keyword in (("functions", "FUNCTION"), ("blocks", "FUNCTION_BLOCK")):
+# Arvore de execucao. A lista segue a ordem real de chamada a partir do programa
+# da tarefa, para que a aba "PLCs em execucao" mostre o que entra dentro de cada
+# POU em vez de apenas o programa principal. A view do VS Code renderiza uma
+# lista plana, entao a profundidade vai codificada no proprio nome.
+POU_PATTERN = re.compile(r"^\s*(PROGRAM|FUNCTION_BLOCK|FUNCTION)\s+([A-Za-z_]\w*)", re.I)
+KIND_LABEL = {"PROGRAM": "PRG", "FUNCTION_BLOCK": "FB", "FUNCTION": "FUN"}
+CONTROL_KEYWORDS = {"IF", "ELSIF", "WHILE", "FOR", "CASE", "REPEAT", "RETURN", "NOT", "AND", "OR"}
+
+
+def declared_kind(relative_path, fallback):
+    # prepare_runtime.py converte PROGRAM em FUNCTION_BLOCK na copia portatil.
+    # O rotulo exibido deve ser o do fonte oficial, nao o da copia.
+    source = ROOT / relative_path
+    if source.is_file():
+        for line in source.read_text(encoding="utf-8").splitlines():
+            match = POU_PATTERN.match(line)
+            if match:
+                return match.group(1).upper()
+    return fallback
+
+
+def parse_pou(source):
+    text = source.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    header = next((POU_PATTERN.match(line) for line in lines if POU_PATTERN.match(line)), None)
+    if not header:
+        return None
+    without_comments = re.sub(r"\(\*.*?\*\)", "", text, flags=re.S)
+    instances = {}
+    for block in re.findall(r"\bVAR(?:_\w+)?\b(.*?)\bEND_VAR\b", without_comments, re.S | re.I):
+        for chunk in block.split(";"):
+            declaration = re.match(r"\s*([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:\s*([A-Za-z_]\w*)\s*$", chunk.split(":=")[0], re.S)
+            if declaration:
+                for name in re.split(r"\s*,\s*", declaration.group(1).strip()):
+                    instances[name.upper()] = declaration.group(2).upper()
+    statements = re.sub(r"\bVAR(?:_\w+)?\b.*?\bEND_VAR\b", "", without_comments, flags=re.S | re.I)
+    calls = []
+    for call in re.finditer(r"(?m)^\s*([A-Za-z_]\w*)\s*\(", statements):
+        token = call.group(1)
+        if token.upper() not in CONTROL_KEYWORDS and token not in calls:
+            calls.append(token)
+    relative = source.relative_to(SOURCE_ROOT).as_posix()
+    return {
+        "name": header.group(2),
+        "kind": declared_kind(relative, header.group(1).upper()),
+        "file": relative,
+        "endLine": len(lines),
+        "instances": instances,
+        "calls": calls,
+    }
+
+
+pous = {}
+for folder in ("functions", "blocks", "programs"):
     for source in files(folder):
-        source_lines = source.read_text(encoding="utf-8").splitlines()
-        declaration = next((line for line in source_lines if re.match(rf"^\s*{keyword}\s+", line, re.I)), "")
-        match = re.match(rf"^\s*{keyword}\s+([A-Za-z_]\w*)", declaration, re.I)
-        if match:
-            prefix = "FUN" if folder == "functions" else "FB"
-            routines.append({
-                "name": f"{prefix} — {match.group(1)}",
-                "file": source.relative_to(ROOT).as_posix(),
-                "startLine": 1,
-                "endLine": len(source_lines),
-            })
-for source in files("programs"):
-    source_lines = source.read_text(encoding="utf-8").splitlines()
-    declaration = next((line for line in source_lines if re.match(r"^\s*PROGRAM\s+", line, re.I)), "")
-    match = re.match(r"^\s*PROGRAM\s+([A-Za-z_]\w*)", declaration, re.I)
-    if match:
-        routines.append({
-            "name": f"PRG — {match.group(1)}",
-            "file": source.relative_to(ROOT).as_posix(),
-            "startLine": 1,
-            "endLine": len(source_lines),
-        })
+        pou = parse_pou(source)
+        if pou:
+            pous[pou["name"].upper()] = pou
+
+
+def resolve_call(owner, token):
+    instance_type = owner["instances"].get(token.upper())
+    if instance_type in pous:
+        return pous[instance_type], token
+    if token.upper() in pous:
+        return pous[token.upper()], None
+    return None, None
+
+
+def entry(pou, guides=None, last=None, instances=(), suffix=""):
+    # guides guarda, para cada nivel acima, se aquele ramo ja terminou. O nivel
+    # raiz nao recebe conector; os demais usam ├─ ate o ultimo irmao, que usa └─.
+    title = f"{KIND_LABEL.get(pou['kind'], 'POU')} — {pou['name']}"
+    if len(instances) > 1:
+        title += f" \u00d7{len(instances)}"
+    elif instances and instances[0].upper() != pou["name"].upper():
+        title += f" ({instances[0]})"
+    guides = guides or ()
+    prefix = "".join("   " if finished else "\u2502  " for finished in guides)
+    if last is not None:
+        prefix += "\u2514\u2500 " if last else "\u251c\u2500 "
+    return {
+        "name": prefix + title + suffix,
+        "title": title,
+        "pou": pou["name"],
+        "depth": len(guides) + (0 if last is None else 1),
+        "file": pou["file"],
+        "startLine": 1,
+        "endLine": pou["endLine"],
+    }
+
+
+# Sem expand_function_blocks os FB viram folhas: os blocos chamados pelos
+# programas continuam visiveis, mas as instancias internas de temporizador e
+# afins ficam recolhidas. A view do VS Code renderiza a lista plana, entao
+# expandir tudo por padrao enche a aba de ruido.
+expand_blocks = bool(manifest.get("debug", {}).get("expand_function_blocks", False))
+seen = set()
+expanded = set()
+
+
+def grouped_children(pou):
+    # Varias instancias do mesmo bloco viram uma linha com a contagem.
+    groups = {}
+    for token in pou["calls"]:
+        target, instance = resolve_call(pou, token)
+        if not target:
+            continue
+        group = groups.setdefault(target["name"].upper(), (target, []))
+        if instance:
+            group[1].append(instance)
+    return list(groups.values())
+
+
+def walk(pou, guides=(), last=None, instances=()):
+    children = grouped_children(pou)
+    leaf = pou["kind"] == "FUNCTION_BLOCK" and not expand_blocks
+    suffix = f" \u00b7 contem {len(children)}" if leaf and children else ""
+    routines.append(entry(pou, guides, last, instances, suffix))
+    seen.add(pou["name"].upper())
+    for target, _ in children:
+        seen.add(target["name"].upper())
+    if leaf or pou["name"].upper() in expanded:
+        return
+    expanded.add(pou["name"].upper())
+    child_guides = guides if last is None else (*guides, last)
+    for index, (target, child_instances) in enumerate(children):
+        walk(target, child_guides, index == len(children) - 1, tuple(child_instances))
+
+
+if main_program.upper() in pous:
+    walk(pous[main_program.upper()])
+for key in sorted(pous):
+    if key not in seen:
+        routines.append(entry(pous[key], suffix=" \u00b7 nao chamada"))
+
+# Rotinas visuais injetadas no Main por (* @ROUTINE arquivo *).
 for source in files("routines"):
-    title = re.sub(r"^\d+_", "", source.stem).replace("_", " ")
     source_lines = source.read_text(encoding="utf-8").splitlines()
+    title = re.sub(r"^\d+_", "", source.stem).replace("_", " ")
     routines.append({
         "name": title,
-        "file": source.relative_to(ROOT).as_posix(),
+        "title": title,
+        "pou": title,
+        "depth": 1,
+        "file": source.relative_to(SOURCE_ROOT).as_posix(),
         "startLine": 1,
         "endLine": len(source_lines),
     })

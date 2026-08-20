@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
-"""Gera acesso online somente para variáveis declaradas nos fontes ST ativos."""
+"""Catalogo online das variaveis globais, para o backend STruC++.
+
+O STruC++ declara cada variavel global como `GlobalVar<V> NOME` em escopo de
+arquivo, com o nome em maiusculas. Estrutura vira struct com campos em
+maiusculas e array indexa com []. Toda folha termina em IECVar, que expoe
+get() e set(). Este gerador percorre os fontes ST preparados e emite os
+acessos C++ correspondentes.
+"""
 from pathlib import Path
 import json
+import os
 import re
-import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
+SOURCE_ROOT = Path(os.environ.get("PLC_CODEX_SOURCE_ROOT", ROOT)).resolve()
 BUILD = ROOT / ".plcsim" / "build"
-manifest = tomllib.loads((ROOT / "plc.toml").read_text(encoding="utf-8"))
-active_directories = set(manifest.get("source_directories", []))
+
 PRIMITIVES = {
     "BOOL": "bool",
     "SINT": "integer", "INT": "integer", "DINT": "integer", "LINT": "integer",
@@ -22,257 +29,165 @@ STANDARD_BLOCKS = {
     "TP": [("IN", "BOOL"), ("PT", "TIME"), ("Q", "BOOL"), ("ET", "TIME")],
     "R_TRIG": [("CLK", "BOOL"), ("Q", "BOOL")],
     "F_TRIG": [("CLK", "BOOL"), ("Q", "BOOL")],
-    "CTU": [("CU", "BOOL"), ("R", "BOOL"), ("PV", "INT"), ("Q", "BOOL"), ("CV", "INT")],
-    "CTD": [("CD", "BOOL"), ("LD", "BOOL"), ("PV", "INT"), ("Q", "BOOL"), ("CV", "INT")],
 }
 
 
-def active_files(folder):
-    if folder not in active_directories:
-        return []
-    return sorted((ROOT / folder).glob("*.st"))
-
-
 def without_comments(text):
-    return re.sub(r"\(\*.*?\*\)", "", text, flags=re.S)
+    text = re.sub(r"\(\*.*?\*\)", " ", text, flags=re.S)
+    return re.sub(r"//[^\n]*", " ", text)
 
 
 def declarations(body):
     result = []
-    for match in re.finditer(r"(?m)^\s*([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:\s*([^;]+);", without_comments(body)):
-        names, declared_type = match.groups()
-        declared_type = declared_type.split(":=", 1)[0].strip().upper()
-        for name in re.split(r"\s*,\s*", names):
-            result.append((name, declared_type))
+    for chunk in without_comments(body).split(";"):
+        match = re.match(r"\s*([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*(?:\bAT\b\s*%\S+\s*)?:\s*(\S.*)", chunk, re.S)
+        if not match:
+            continue
+        names, declared = match.groups()
+        declared = declared.split(":=", 1)[0].strip().upper()
+        for name in re.split(r"\s*,\s*", names.strip()):
+            result.append((name, declared))
     return result
 
 
-def variable_blocks(text):
-    return "\n".join(match.group(1) for match in re.finditer(r"\bVAR(?:_(?:INPUT|OUTPUT|IN_OUT|TEMP|EXTERNAL|GLOBAL|RETAIN))*\b(.*?)\bEND_VAR\b", text, re.S | re.I))
-
-
-def parse_named_bodies(folder, keyword, end_keyword):
-    result = {}
-    sources = {}
-    pattern = re.compile(rf"\b{keyword}\s+([A-Za-z_]\w*)(.*?)(?:\b{end_keyword}\b)", re.S | re.I)
-    for source in active_files(folder):
-        for match in pattern.finditer(without_comments(source.read_text(encoding="utf-8"))):
-            result[match.group(1).upper()] = declarations(variable_blocks(match.group(2)))
-            sources[match.group(1).upper()] = source.relative_to(ROOT).as_posix()
-    return result, sources
+def files(folder):
+    directory = SOURCE_ROOT / folder
+    return sorted(directory.glob("*.st")) if directory.is_dir() else []
 
 
 structs = {}
-for source in active_files("types"):
+for source in files("types"):
     text = without_comments(source.read_text(encoding="utf-8"))
     for match in re.finditer(r"\bTYPE\s+([A-Za-z_]\w*)\s*:\s*STRUCT\b(.*?)\bEND_STRUCT\s*;?\s*END_TYPE\b", text, re.S | re.I):
         structs[match.group(1).upper()] = declarations(match.group(2))
 
-blocks, block_sources = parse_named_bodies("blocks", "FUNCTION_BLOCK", "END_FUNCTION_BLOCK")
-blocks.update(STANDARD_BLOCKS)
-programs, program_sources = parse_named_bodies("programs", "PROGRAM", "END_PROGRAM")
-tasks = manifest.get("task", [])
-if not tasks:
-    raise SystemExit("plc.toml não possui [[task]] com program configurado")
-entrypoint = tasks[0].get("program")
-if not entrypoint or entrypoint.upper() not in programs:
-    raise SystemExit(f"Programa de entrada '{entrypoint}' não existe em programs/*.st")
+blocks = dict(STANDARD_BLOCKS)
+for folder in ("blocks", "programs", "functions"):
+    for source in files(folder):
+        text = without_comments(source.read_text(encoding="utf-8"))
+        for match in re.finditer(r"\bFUNCTION_BLOCK\s+([A-Za-z_]\w*)(.*?)\bEND_FUNCTION_BLOCK\b", text, re.S | re.I):
+            body = "\n".join(m.group(1) for m in re.finditer(r"\bVAR(?:_\w+)?\b(.*?)\bEND_VAR\b", match.group(2), re.S | re.I))
+            blocks[match.group(1).upper()] = declarations(body)
+
+# O STruC++ renomeia identificador que colide com nome reservado do C++,
+# acrescentando "_". Em vez de adivinhar a regra, lemos os nomes reais do
+# header gerado e casamos com os do ST.
+HEADER = BUILD / "out" / "project.hpp"
+header_text = HEADER.read_text(encoding="utf-8") if HEADER.is_file() else ""
+struct_members = {}
+for match in re.finditer(r"\bstruct\s+([A-Za-z_]\w*)\s*\{(.*?)\n\};", header_text, re.S):
+    membros = set(re.findall(r"^\s*[A-Za-z_][\w:<>,\s]*?\s([A-Za-z_]\w*)\s*\{", match.group(2), re.M))
+    struct_members[match.group(1).upper()] = membros
+header_globals = set(re.findall(r"\binline\s+GlobalVar<[^>]*>\s+([A-Za-z_]\w*)\s*\{", header_text))
+
+
+def actual_name(candidate, known):
+    """Nome como o compilador o escreveu, tolerando o sufixo de desambiguacao."""
+    if not known or candidate in known:
+        return candidate
+    return f"{candidate}_" if f"{candidate}_" in known else candidate
+
 
 catalog = []
 unsupported = []
 
 
-def add_leaves(path, declared_type, expression, storage, source, seen=(), root_type=None):
-    root_type = root_type or declared_type
-    upper_type = declared_type.upper()
-    if upper_type in PRIMITIVES:
-        root_upper = root_type.upper()
-        root_kind = "functionBlock" if root_upper in blocks else "structure" if root_upper in structs else "primitive"
-        catalog.append({"path": path, "type": upper_type, "kind": PRIMITIVES[upper_type], "expression": expression, "storage": storage, "source": source, "rootType": root_type, "rootKind": root_kind})
+def add_leaves(path, expression, declared, seen=()):
+    upper = declared.upper()
+    array = re.fullmatch(r"ARRAY\s*\[\s*(-?\d+)\s*\.\.\s*(-?\d+)\s*\]\s*OF\s*(.+)", declared, re.I)
+    if array:
+        lower, higher, item = int(array.group(1)), int(array.group(2)), array.group(3).strip()
+        for index in range(lower, higher + 1):
+            add_leaves(f"{path}[{index}]", f"{expression}[{index}]", item, seen)
         return
-    fields = structs.get(upper_type) or blocks.get(upper_type)
+    if upper in PRIMITIVES:
+        catalog.append({"path": path, "type": upper, "kind": PRIMITIVES[upper], "expression": expression})
+        return
+    fields = structs.get(upper) or blocks.get(upper)
     if not fields:
-        unsupported.append({"path": path, "type": declared_type, "source": source})
+        unsupported.append({"path": path, "type": declared})
         return
-    if upper_type in seen:
-        unsupported.append({"path": path, "type": declared_type, "source": source, "reason": "tipo recursivo"})
+    if upper in seen:
+        unsupported.append({"path": path, "type": declared, "reason": "tipo recursivo"})
         return
-    for field, field_type in fields:
-        field_expression = f"{expression}.{field.upper()}" if storage == "program" else f"{expression}->{field.upper()}"
-        if storage == "program" and field_type.upper() in PRIMITIVES:
-            field_expression += ".value"
-        add_leaves(f"{path}.{field}", field_type, field_expression, storage, source, (*seen, upper_type), root_type)
+    known = struct_members.get(upper)
+    for name, field_type in fields:
+        campo = actual_name(name.upper(), known)
+        add_leaves(f"{path}.{name}", f"{expression}.{campo}", field_type, (*seen, upper))
 
 
-for source in active_files("globals"):
-    for name, declared_type in declarations(variable_blocks(source.read_text(encoding="utf-8"))):
-        if declared_type in PRIMITIVES:
-            expression = f"(*__GET_GLOBAL_{name.upper()}())"
-        else:
-            expression = f"__GET_GLOBAL_{name.upper()}()"
-        add_leaves(name, declared_type, expression, "global", source.relative_to(ROOT).as_posix())
-
-for name, declared_type in programs[entrypoint.upper()]:
-    expression = f"RES0__INST0.{name.upper()}"
-    if declared_type in PRIMITIVES:
-        expression += ".value"
-    add_leaves(f"{entrypoint}.{name}", declared_type, expression, "program", program_sources[entrypoint.upper()])
+for source in files("globals"):
+    text = source.read_text(encoding="utf-8")
+    for body in re.findall(r"VAR_GLOBAL(.*?)END_VAR", text, re.S | re.I):
+        for name, declared in declarations(body):
+            add_leaves(name, f"{actual_name(name.upper(), header_globals)}.value", declared)
 
 
 def add_statement(item):
-    p, t, e, kind = item["path"], item["type"], item["expression"], item["kind"]
+    path, kind, expression, declared = item["path"], item["kind"], item["expression"], item["type"]
     if kind == "bool":
-        return f'    add_bool(b,n,u,f,"{p}",{e},1);'
+        return f'    add_bool(b,n,u,f,"{path}",{expression}.get(),1);'
     if kind == "integer":
-        return f'    add_integer(b,n,u,f,"{p}","{t}",(long long)({e}),1);'
+        return f'    add_integer(b,n,u,f,"{path}","{declared}",(long long)({expression}.get()),1);'
     if kind == "real":
-        return f'    add_float(b,n,u,f,"{p}","{t}",(double)({e}),1);'
-    return f'    add_time(b,n,u,f,"{p}",{e});'
+        return f'    add_float(b,n,u,f,"{path}","{declared}",(double)({expression}.get()),1);'
+    return f'    add_time(b,n,u,f,"{path}",{expression}.get());'
 
 
 def set_statement(item, first):
-    p, t, e, kind = item["path"], item["type"], item["expression"], item["kind"]
+    path, kind, expression, declared = item["path"], item["kind"], item["expression"], item["type"]
     prefix = "if" if first else "else if"
-    if kind == "bool": value = "bv"
-    elif kind == "real": value = f"({t})rv"
-    elif kind == "time": value = "milliseconds_to_time(rv)"
-    elif t.startswith("U") or t in {"BYTE", "WORD", "DWORD", "LWORD"}: value = f"({t})strtoull(raw,NULL,10)"
-    else: value = f"({t})strtoll(raw,NULL,10)"
-    return f'    {prefix} (!strcmp(tag,"{p}")) {{ {e}={value}; return 1; }}'
+    if kind == "bool":
+        value = "(BOOL_t)bv"
+    elif kind == "real":
+        value = "rv"
+    elif kind == "time":
+        value = "milliseconds_to_time(rv)"
+    else:
+        value = "(long long)rv"
+    return f'    {prefix} (!strcmp(tag,"{path}")) {{ {expression}.set({value}); return 1; }}'
 
 
 generated = [
-    "/* Gerado de types/, blocks/, globals/ e do PROGRAM configurado. Não editar. */",
+    "/* Gerado a partir de globals/, types/ e blocks/. Nao editar. */",
     "static void generated_add_variables(char *b,size_t n,int*u,int*f) {",
     *(add_statement(item) for item in catalog),
     "}",
     "static int generated_set_tag(const char *tag,const char *raw) {",
-    "    int bv=(!strcasecmp(raw,\"true\")||atoi(raw)!=0); double rv=atof(raw);",
+    '    int bv=(!strcasecmp(raw,"true")||atoi(raw)!=0); double rv=atof(raw);',
+    "    (void)bv; (void)rv;",
     *(set_statement(item, index == 0) for index, item in enumerate(catalog)),
     "    return 0;",
     "}",
 ]
+# Cola com o backend: nome da classe do programa da tarefa e intervalo do ciclo.
+import tomllib
+manifest = tomllib.loads((ROOT / "plc.toml").read_text(encoding="utf-8"))
+task = manifest.get("task", [{}])[0]
+entrypoint = task.get("program", "Main")
+interval_ms = int(task.get("interval_ms", 10))
+backend = [
+    "/* Gerado a partir de plc.toml. Nao editar. */",
+    "/* A Configuration gerada ja instancia os programas e monta tarefas e",
+    "   recursos, entao o ciclo apenas percorre o que ela declara. */",
+    "static Configuration_CONFIG0 plc_config;",
+    f"static const long plc_interval_ms = {interval_ms};",
+    "static void plc_init(void) {}",
+    "static void plc_run_cycle(void) {",
+    "    ResourceInstance *recursos = plc_config.get_resources();",
+    "    for (size_t r = 0; r < plc_config.get_resource_count(); r++)",
+    "        for (size_t t = 0; t < recursos[r].task_count; t++)",
+    "            for (size_t p = 0; p < recursos[r].tasks[t].program_count; p++)",
+    "                recursos[r].tasks[t].programs[p]->run();",
+    "}",
+]
+
+BUILD.mkdir(parents=True, exist_ok=True)
+(BUILD / "backend_generated.inc").write_text("\n".join(backend) + "\n", encoding="utf-8")
 (BUILD / "variables_generated.inc").write_text("\n".join(generated) + "\n", encoding="utf-8")
 (BUILD / "variables.json").write_text(json.dumps({
-    "version": 1, "entrypoint": entrypoint, "variables": [
-        {key: value for key, value in item.items() if key not in {"expression", "storage"}} for item in catalog
-    ], "unsupported": unsupported,
+    "version": 2, "backend": "strucpp",
+    "variables": [{k: v for k, v in item.items() if k != "expression"} for item in catalog],
+    "unsupported": unsupported,
 }, ensure_ascii=False, indent=2), encoding="utf-8")
-
-# Índice estático de leitura, escrita e dependências. A extensão combina estes
-# dados com mudanças observadas online para indicar origem e causa provável.
-source_map = json.loads((BUILD / "source_map.json").read_text(encoding="utf-8"))
-project_text = (BUILD / "project.st").read_text(encoding="utf-8")
-project_lines = re.sub(r"\(\*.*?\*\)", lambda match: "\n" * match.group(0).count("\n"), project_text, flags=re.S).splitlines()
-canonical = {item["path"].upper(): item["path"] for item in catalog}
-routine_by_file = {item["file"]: item["name"] for item in source_map.get("routines", [])}
-writers = {}
-references = {item["path"]: {"reads": [], "writes": []} for item in catalog}
-dependencies = {}
-dependency_details = {}
-write_expressions = {}
-write_dependencies = {}
-assignment = re.compile(r"([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*:=", re.I)
-token_pattern = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
-
-
-def resolve_token(token):
-    upper = token.upper()
-    if upper in canonical:
-        return [canonical[upper]]
-    local = f"{entrypoint}.{upper}".upper()
-    if local in canonical:
-        return [canonical[local]]
-    if "." not in upper:
-        return [path for key, path in canonical.items() if key.endswith(f".{upper}")]
-    return []
-
-
-def append_unique(items, value):
-    if not any(item["file"] == value["file"] and item["line"] == value["line"] for item in items):
-        items.append(value)
-
-
-active_file = None
-condition_stack = []
-for generated_line, mapped in source_map.get("lines", {}).items():
-    text = project_lines[int(generated_line) - 1]
-    if mapped["file"] != active_file:
-        active_file, condition_stack = mapped["file"], []
-    upper_text = text.upper()
-    if re.search(r"\bELSIF\b", upper_text) and condition_stack:
-        condition_stack.pop()
-    if re.match(r"^\s*ELSE\s*$", upper_text) and condition_stack:
-        condition_stack.pop()
-    condition_match = re.search(r"\b(?:IF|ELSIF)\s+(.+?)\s+THEN\b", text, re.I)
-    if condition_match:
-        condition = {}
-        condition_text = condition_match.group(1)
-        for token in token_pattern.finditer(condition_text):
-            negated = bool(re.search(r"\bNOT\s*$", condition_text[:token.start()], re.I))
-            for resolved in resolve_token(token.group(0)):
-                condition[resolved] = condition.get(resolved, False) or negated
-        condition_stack.append(condition)
-    location = {
-        "routine": routine_by_file.get(mapped["file"], Path(mapped["file"]).stem),
-        "file": mapped["file"], "line": mapped["line"],
-    }
-    matches = list(assignment.finditer(text))
-    lhs_spans = [match.span(1) for match in matches]
-    read_paths = set()
-    read_polarity = {}
-    for token in token_pattern.finditer(text):
-        if any(start <= token.start() < end for start, end in lhs_spans):
-            continue
-        resolved = resolve_token(token.group(0))
-        read_paths.update(resolved)
-        negated = bool(re.search(r"\bNOT\s*$", text[:token.start()], re.I))
-        for variable_path in resolved:
-            read_polarity[variable_path] = read_polarity.get(variable_path, False) or negated
-    for variable_path in read_paths:
-        append_unique(references[variable_path]["reads"], location)
-    for match in matches:
-        before = text[:match.start()].rstrip()
-        if before.endswith(("(", ",")):  # parâmetro nomeado de chamada de FB
-            continue
-        for variable_path in dict.fromkeys(resolve_token(match.group(1))):
-            writers[variable_path] = location
-            append_unique(references[variable_path]["writes"], location)
-            expressions = write_expressions.setdefault(variable_path, [])
-            expression_item = {**location, "statement": text.strip()}
-            if not any(item["file"] == location["file"] and item["line"] == location["line"] for item in expressions):
-                expressions.append(expression_item)
-            dependencies.setdefault(variable_path, set()).update(read_paths)
-            dependencies[variable_path].update(*(set(condition) for condition in condition_stack))
-            dependencies[variable_path].discard(variable_path)
-            details = dependency_details.setdefault(variable_path, {})
-            for dependency in read_paths:
-                if dependency != variable_path:
-                    details[dependency] = details.get(dependency, False) or read_polarity.get(dependency, False)
-            for condition in condition_stack:
-                for dependency, negated in condition.items():
-                    if dependency != variable_path:
-                        details[dependency] = details.get(dependency, False) or negated
-            per_write = {dependency: read_polarity.get(dependency, False) for dependency in read_paths if dependency != variable_path}
-            for condition in condition_stack:
-                for dependency, negated in condition.items():
-                    if dependency != variable_path:
-                        per_write[dependency] = per_write.get(dependency, False) or negated
-            entries = write_dependencies.setdefault(variable_path, [])
-            write_item = {**location, "statement": text.strip(), "dependencies": [{"tag": tag, "negated": negated} for tag, negated in sorted(per_write.items())]}
-            if not any(item["file"] == location["file"] and item["line"] == location["line"] for item in entries):
-                entries.append(write_item)
-    if re.search(r"\bEND_IF\b", upper_text) and condition_stack:
-        condition_stack.pop()
-(BUILD / "writers.json").write_text(json.dumps({
-    "version": 1, "writers": writers,
-}, ensure_ascii=False, indent=2), encoding="utf-8")
-(BUILD / "references.json").write_text(json.dumps({
-    "version": 1,
-    "references": references,
-    "dependencies": {path: sorted(values) for path, values in dependencies.items()},
-    "dependencyDetails": {path: [{"tag": tag, "negated": negated} for tag, negated in sorted(values.items())] for path, values in dependency_details.items()},
-    "writeExpressions": write_expressions,
-    "writeDependencies": write_dependencies,
-}, ensure_ascii=False, indent=2), encoding="utf-8")
-print(f"Catálogo ST: {len(catalog)} variáveis de {entrypoint}; {len(unsupported)} tipos não expostos.")
+print(f"Catalogo: {len(catalog)} variaveis globais; {len(unsupported)} tipos nao expostos.")
