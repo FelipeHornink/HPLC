@@ -1113,7 +1113,8 @@ class RoutinesTreeProvider {
   update(state) { if (state) this.state = state; }
   refresh(state) { if (state) this.state = state; this.emitter.fire(); }
   getTreeItem(item) { return item; }
-  getChildren() {
+  getChildren(element) {
+    if (element) return element.plcChildren || [];
     if (!activeProject || !hasLivePid(activeProject)) {
       const empty = new vscode.TreeItem('Inicie o PLC para acompanhar as rotinas');
       empty.iconPath = new vscode.ThemeIcon('info');
@@ -1139,19 +1140,42 @@ class RoutinesTreeProvider {
       statusItem.children = [lineItem];
     }
 
+    // A arvore acompanha a ordem de chamada. build.py entrega cada POU com o
+    // campo depth; o pai de um item e o ultimo item do nivel imediatamente
+    // acima. Sem depth a lista degrada para plana, como nas versoes anteriores.
     const traced = (state.trace || []).map(projectLine => sourceMap.lines?.[String(projectLine)]).filter(Boolean);
-    const routineItems = (sourceMap.routines || []).map((routine, index) => {
+    const roots = [];
+    const openBranch = [];
+    (sourceMap.routines || []).forEach((routine, index) => {
       const isCurrent = current && current.file === routine.file && current.line >= routine.startLine && current.line <= routine.endLine;
       const executed = traced.some(item => item.file === routine.file && item.line >= routine.startLine && item.line <= routine.endLine);
-      const item = new vscode.TreeItem(routine.name);
+      const item = new vscode.TreeItem(routine.title || routine.name);
       item.id = `plc-routine-${index}-${routine.file}-${routine.startLine}`;
       item.description = isCurrent ? `LINHA ${current.line}` : executed ? `executada · scan ${state.scan}` : 'não executada';
       item.iconPath = new vscode.ThemeIcon(isCurrent ? 'debug-stackframe-active' : executed ? 'pass-filled' : 'circle-outline');
       item.contextValue = isCurrent ? 'plcRoutineCurrent' : 'plcRoutine';
       item.command = { command: 'plcCodex.openRoutine', title: 'Abrir rotina', arguments: [routine.file, isCurrent ? current.line : routine.startLine] };
-      return item;
+      item.plcChildren = [];
+      item.plcIsBlock = String(routine.title || routine.name).startsWith('FB');
+      const depth = Number.isInteger(routine.depth) ? Math.max(0, routine.depth) : 0;
+      openBranch.length = Math.min(openBranch.length, depth);
+      const parent = depth > 0 ? openBranch[depth - 1] : undefined;
+      if (parent) parent.plcChildren.push(item); else roots.push(item);
+      openBranch[depth] = item;
     });
-    return [statusItem, ...(statusItem.children || []), ...routineItems];
+    // Programas abrem por padrao; blocos de funcao chegam recolhidos para nao
+    // encher a aba com instancias de temporizador.
+    const applyCollapsible = items => {
+      for (const item of items) {
+        if (!item.plcChildren.length) continue;
+        item.collapsibleState = item.plcIsBlock
+          ? vscode.TreeItemCollapsibleState.Collapsed
+          : vscode.TreeItemCollapsibleState.Expanded;
+        applyCollapsible(item.plcChildren);
+      }
+    };
+    applyCollapsible(roots);
+    return [statusItem, ...(statusItem.children || []), ...roots];
   }
 }
 
