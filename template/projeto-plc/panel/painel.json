@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "title": "Compressor C7 — Bancada de teste",
+  "display": {"realPrecision": 2, "theme": "light"},
+  "areas": {
+    "monitoring": [
+      {"tag":"StatusMaquina.EstadoAtual","label":"Estado atual","kind":"number","ioType":"STATUS","writable":false,"valueLabels":{"0":"S0 · Desligado","1":"S1 · Verificando permissivos","10":"S10 · Ligando auxiliares","11":"S11 · Manutenção","20":"S20 · Alívio automático","30":"S30 · Em carga","40":"S40 · Alívio manual","100":"S100 · Parada segura"}},
+      {"tag":"StatusMaquina.ProximoEstado","label":"Próximo estado","kind":"number","ioType":"STATUS","writable":false,"valueLabels":{"0":"S0","1":"S1","10":"S10","11":"S11","20":"S20","30":"S30","40":"S40","100":"S100"}},
+      {"tag":"StatusMaquina.Pronto","label":"Pronto para partir","kind":"bool","ioType":"STATUS","writable":false},
+      {"tag":"StatusMaquina.EmOperacao","label":"Em operação","kind":"bool","ioType":"STATUS","writable":false},
+      {"tag":"StatusMaquina.EmFalha","label":"Em falha","kind":"bool","ioType":"STATUS","writable":false},
+      {"tag":"ComandoConsolidado.PermissivosOK","label":"Permissivos OK","kind":"bool","ioType":"INTERNO","writable":false},
+      {"tag":"ComandoConsolidado.Trip","label":"Trip consolidado","kind":"bool","ioType":"INTERNO","writable":false},
+      {"tag":"PressaoJusante.ValorEngenharia","label":"Pressão de descarga","kind":"number","ioType":"PROCESSO","unit":"bar","precision":2,"writable":false},
+      {"tag":"TemperaturaOleo.ValorEngenharia","label":"Temperatura do óleo","kind":"number","ioType":"PROCESSO","unit":"°C","precision":1,"writable":false}
+    ],
+    "ihm": [
+      {"tab":"Operação","tag":"Comandos.IHMLiga","label":"Liga","kind":"pushbutton","ioType":"IHM","writable":true},
+      {"tab":"Operação","tag":"Comandos.IHMDesliga","label":"Desliga","kind":"pushbutton","ioType":"IHM","writable":true},
+      {"tab":"Operação","tag":"Comandos.IHMReset","label":"Reset","kind":"pushbutton","ioType":"IHM","writable":true},
+      {"tab":"Operação","tag":"StatusMaquina.EstadoAtual","label":"Estado da máquina","kind":"number","ioType":"INTERNO","writable":true},
+      {"tab":"Operação","tag":"IHMPronto","label":"Pronto","kind":"bool","ioType":"IHM","writable":true},
+      {"tab":"Operação","tag":"IHMEmOperacao","label":"Em operação","kind":"bool","ioType":"IHM","writable":true},
+      {"tab":"Operação","tag":"IHMEmFalha","label":"Em falha","kind":"bool","ioType":"IHM","writable":true},
+      {"tab":"Parâmetros","tag":"SetpointCarga","label":"Setpoint de carga","kind":"number","ioType":"IHM","unit":"bar","precision":2,"writable":true},
+      {"tab":"Parâmetros","tag":"SetpointAlivio","label":"Setpoint de alívio","kind":"number","ioType":"IHM","unit":"bar","precision":2,"writable":true},
+      {"tab":"Parâmetros","tag":"Comandos.IHMAlivioManual","label":"Alívio manual","kind":"switch","ioType":"IHM","writable":true},
+      {"tab":"Parâmetros","tag":"Comandos.IHMModoManutencao","label":"Modo manutenção","kind":"switch","ioType":"IHM","writable":true},
+      {"tab":"Diagnóstico","tag":"TotalPartidas","label":"Total de partidas","kind":"number","ioType":"INTERNO","writable":true},
+      {"tab":"Diagnóstico","tag":"TotalTrips","label":"Total de trips","kind":"number","ioType":"INTERNO","writable":true}
+    ],
+    "panel": [
+      {"tag":"InputsDigitais.EmergenciaSaudavel","label":"Emergência local saudável","kind":"switch","ioType":"DI","address":"DI-00","writable":true},
+      {"tag":"InputsDigitais.SeletorLocalRemoto","label":"Seletor local/remoto","kind":"switch","ioType":"DI","address":"DI-01","writable":true},
+      {"tag":"InputsDigitais.BotaoLiga","label":"Partida local","kind":"pushbutton","ioType":"DI","address":"DI-02","writable":true},
+      {"tag":"InputsDigitais.BotaoDesliga","label":"Parada local","kind":"pushbutton","ioType":"DI","address":"DI-03","writable":true},
+      {"tag":"InputsDigitais.BotaoReset","label":"Reset local","kind":"pushbutton","ioType":"DI","address":"DI-04","writable":true},
+      {"tag":"OutputsDigitais.SinaleiroPronto","label":"Sinaleiro pronto","kind":"bool","ioType":"DO","address":"DQ-02","writable":true},
+      {"tag":"OutputsDigitais.SinaleiroLigado","label":"Sinaleiro ligado","kind":"bool","ioType":"DO","address":"DQ-00","writable":true},
+      {"tag":"OutputsDigitais.SinaleiroFalha","label":"Sinaleiro falha","kind":"bool","ioType":"DO","address":"DQ-01","writable":true}
+    ],
+    "interface": [
+      {"tag":"InputsDigitais.PermissivoCliente","label":"Cliente → PLC · Permissivo geral","kind":"switch","ioType":"DI","address":"DI-08","writable":true},
+      {"tag":"InputsDigitais.ClienteStart","label":"Cliente → PLC · Partida","kind":"pushbutton","ioType":"DI","address":"DI-09","writable":true},
+      {"tag":"InputsDigitais.ClienteStop","label":"Cliente → PLC · Parada","kind":"pushbutton","ioType":"DI","address":"DI-10","writable":true},
+      {"tag":"InputsDigitais.ClienteEmergencia","label":"Cliente → PLC · Emergência","kind":"switch","ioType":"DI","address":"DI-11","writable":true},
+      {"tag":"OutputsDigitais.ClienteResumoAlarme","label":"PLC → Cliente · Resumo de alarme","kind":"bool","ioType":"DO","address":"DQ-16","writable":true},
+      {"tag":"OutputsDigitais.ClienteResumoTrip","label":"PLC → Cliente · Resumo de trip","kind":"bool","ioType":"DO","address":"DQ-17","writable":true},
+      {"tag":"OutputsDigitais.ClienteModoRemoto","label":"PLC → Cliente · Modo remoto","kind":"bool","ioType":"DO","address":"DQ-18","writable":true},
+      {"tag":"OutputsDigitais.ClientePermissivoPartida","label":"PLC → Cliente · Liberação para partida","kind":"bool","ioType":"DO","address":"DQ-19","writable":true}
+    ],
+    "field": [
+      {"tag":"OutputsDigitais.LigaMotorPrincipal","label":"Motor principal","kind":"bool","ioType":"DO","address":"DQ-25","writable":true},
+      {"tag":"OutputsDigitais.LigaExaustor","label":"Exaustor","kind":"bool","ioType":"DO","address":"DQ-26","writable":true},
+      {"tag":"OutputsDigitais.LigaVentilador1","label":"Ventilador 1","kind":"bool","ioType":"DO","address":"DQ-27","writable":true},
+      {"tag":"OutputsDigitais.LigaVentilador2","label":"Ventilador 2","kind":"bool","ioType":"DO","address":"DQ-28","writable":true},
+      {"tag":"OutputsDigitais.AbreValvulaSucao","label":"Válvula de sucção","kind":"bool","ioType":"DO","address":"DQ-24","writable":true},
+      {"tag":"InputsDigitais.RetornoMotor","label":"Retorno motor principal","kind":"bool","ioType":"DI","address":"DI-16","writable":true},
+      {"tag":"InputsDigitais.RetornoValvulaAberta","label":"Retorno válvula aberta","kind":"bool","ioType":"DI","address":"DI-22","writable":true},
+      {"tag":"PressaoJusante.ValorSimulado","label":"Pressão simulada","kind":"number","ioType":"AI","address":"SIM-AI-00","unit":"bar","precision":2,"writable":true},
+      {"tag":"TemperaturaOleo.ValorSimulado","label":"Temperatura simulada","kind":"number","ioType":"AI","address":"SIM-AI-08","unit":"°C","precision":1,"writable":true},
+      {"tag":"PIT700.ValorEngenharia","label":"PIT700","kind":"number","ioType":"AI","address":"AI-00","unit":"bar","precision":2,"writable":true},
+      {"tag":"TIT700.ValorEngenharia","label":"TIT700","kind":"number","ioType":"AI","address":"AI-08","unit":"°C","precision":1,"writable":true}
+    ]
+  }
+}

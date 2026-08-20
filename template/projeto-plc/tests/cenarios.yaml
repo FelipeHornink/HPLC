@@ -1,0 +1,24 @@
+name: Compressor básico
+scenarios:
+  - name: Recuperação e partida
+    steps:
+      - set: InputsDigitais.EmergenciaSaudavel
+        value: true
+      - set: InputsDigitais.PermissivoCliente
+        value: true
+      - pulse: InputsDigitais.BotaoReset
+      - expect: StatusMaquina.EstadoAtual
+        value: 0
+      - pulse: InputsDigitais.BotaoLiga
+      - wait_ms: 1800
+      - expect: OutputsDigitais.LigaMotorPrincipal
+        value: true
+  - name: Trip imediato
+    steps:
+      - set: InputsDigitais.EmergenciaSaudavel
+        value: false
+      - wait_ms: 50
+      - expect: StatusMaquina.EstadoAtual
+        value: 100
+      - expect: OutputsDigitais.LigaMotorPrincipal
+        value: false

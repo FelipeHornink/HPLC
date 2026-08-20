@@ -1,0 +1,158 @@
+# Mapa funcional preservado do projeto OpenPLC XML (índice do canal original).
+[[di]]
+name="InputsDigitais.EmergenciaSaudavel"
+address="DI-00"
+label="Emergência local saudável"
+control="switch"
+[[di]]
+name="InputsDigitais.SeletorLocalRemoto"
+address="DI-01"
+label="Seletor local/remoto"
+control="switch"
+[[di]]
+name="InputsDigitais.BotaoLiga"
+address="DI-02"
+label="Partida local"
+control="momentary"
+[[di]]
+name="InputsDigitais.BotaoDesliga"
+address="DI-03"
+label="Parada local (NF)"
+control="momentary"
+[[di]]
+name="InputsDigitais.BotaoReset"
+address="DI-04"
+label="Reset local"
+control="momentary"
+[[di]]
+name="InputsDigitais.PermissivoCliente"
+address="DI-08"
+label="Permissivo cliente"
+control="switch"
+[[di]]
+name="InputsDigitais.ClienteStart"
+address="DI-09"
+label="Partida cliente"
+control="momentary"
+[[di]]
+name="InputsDigitais.ClienteStop"
+address="DI-10"
+label="Parada cliente"
+control="momentary"
+[[di]]
+name="InputsDigitais.ClienteEmergencia"
+address="DI-11"
+label="Emergência cliente saudável"
+control="switch"
+[[di]]
+name="InputsDigitais.RetornoMotor"
+address="DI-16"
+label="Retorno motor principal"
+control="feedback"
+[[di]]
+name="InputsDigitais.RetornoExaustor"
+address="DI-17"
+label="Retorno exaustor"
+control="feedback"
+[[di]]
+name="InputsDigitais.RetornoVentilador1"
+address="DI-18"
+label="Retorno ventilador 1"
+control="feedback"
+[[di]]
+name="InputsDigitais.RetornoVentilador2"
+address="DI-19"
+label="Retorno ventilador 2"
+control="feedback"
+[[di]]
+name="InputsDigitais.TripExterno"
+address="DI-20"
+label="Trip externo"
+control="switch"
+[[di]]
+name="InputsDigitais.RetornoValvulaFechada"
+address="DI-21"
+label="Válvula fechada"
+control="feedback"
+[[di]]
+name="InputsDigitais.RetornoValvulaAberta"
+address="DI-22"
+label="Válvula aberta"
+control="feedback"
+[[di]]
+name="InputsDigitais.LSH"
+address="DI-24"
+label="Nível alto"
+control="switch"
+
+[[do]]
+name="OutputsDigitais.SinaleiroLigado"
+address="DQ-00"
+label="Sinaleiro ligado"
+[[do]]
+name="OutputsDigitais.SinaleiroFalha"
+address="DQ-01"
+label="Sinaleiro falha"
+[[do]]
+name="OutputsDigitais.SinaleiroPronto"
+address="DQ-02"
+label="Sinaleiro pronto"
+[[do]]
+name="OutputsDigitais.ClienteResumoAlarme"
+address="DQ-16"
+label="Resumo alarme cliente"
+[[do]]
+name="OutputsDigitais.ClienteResumoTrip"
+address="DQ-17"
+label="Resumo trip cliente"
+[[do]]
+name="OutputsDigitais.ClienteModoRemoto"
+address="DQ-18"
+label="Modo remoto cliente"
+[[do]]
+name="OutputsDigitais.ClientePermissivoPartida"
+address="DQ-19"
+label="Permissivo partida cliente"
+[[do]]
+name="OutputsDigitais.ClienteFalhaFonte"
+address="DQ-20"
+label="Falha de fonte"
+[[do]]
+name="OutputsDigitais.AbreValvulaSucao"
+address="DQ-24"
+label="Válvula de sucção"
+[[do]]
+name="OutputsDigitais.LigaMotorPrincipal"
+address="DQ-25"
+label="Motor principal"
+[[do]]
+name="OutputsDigitais.LigaExaustor"
+address="DQ-26"
+label="Exaustor"
+[[do]]
+name="OutputsDigitais.LigaVentilador1"
+address="DQ-27"
+label="Ventilador 1"
+[[do]]
+name="OutputsDigitais.LigaVentilador2"
+address="DQ-28"
+label="Ventilador 2"
+[[do]]
+name="OutputsDigitais.LigaResistenciaAquecimento"
+address="DQ-31"
+label="Resistência de aquecimento"
+
+[[ai]]
+name="Instrumentos.PIT700"
+address="AI-00"
+label="PIT700"
+minimum=0.0
+maximum=10.0
+unit="bar"
+[[ai]]
+name="Instrumentos.TIT700"
+address="AI-08"
+label="TIT700"
+minimum=0.0
+maximum=150.0
+unit="°C"

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "title": "Compressor C7 — Visão de processo",
+  "display": {"realPrecision": 2, "theme": "light"},
+  "items": [
+    {"tag":"InputsDigitais.PermissivoCliente","label":"Permissivo cliente","x":6,"y":12,"unit":""},
+    {"tag":"OutputsDigitais.AbreValvulaSucao","label":"XV-700 Sucção","x":18,"y":51,"unit":""},
+    {"tag":"InputsDigitais.RetornoValvulaAberta","label":"ZSO-700 Aberta","x":18,"y":72,"unit":""},
+    {"tag":"MotorPrincipal.EmOperacao","label":"M-700 Em operação","x":39,"y":27,"unit":""},
+    {"tag":"OutputsDigitais.LigaMotorPrincipal","label":"Comando motor","x":39,"y":68,"unit":""},
+    {"tag":"PIT700.ValorEngenharia","label":"PIT-700","x":61,"y":13,"unit":"bar","precision":2},
+    {"tag":"TIT700.ValorEngenharia","label":"TIT-700","x":61,"y":67,"unit":"°C","precision":1},
+    {"tag":"OutputsDigitais.LigaExaustor","label":"M-701 Exaustor","x":78,"y":18,"unit":""},
+    {"tag":"PressaoJusante.ValorEngenharia","label":"Pressão jusante","x":86,"y":51,"unit":"bar","precision":2},
+    {"tag":"StatusMaquina.EstadoAtual","label":"Estado da máquina","x":82,"y":82,"unit":""}
+  ]
+}

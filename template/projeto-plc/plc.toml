@@ -1,0 +1,10 @@
+name = "Compressor Básico PLC Codex"
+standard = "IEC 61131-3"
+panel_port = 8100
+pid_port = 8101
+source_directories = ["types", "functions", "blocks", "globals", "programs", "routines"]
+
+[[task]]
+name = "MainTask"
+interval_ms = 10
+program = "Main"

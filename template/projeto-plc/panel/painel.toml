@@ -1,0 +1,25 @@
+title = "Equipamento — Bancada virtual"
+
+[[control]]
+tag = "I_BotaoLiga"
+widget = "momentary_button"
+
+[[control]]
+tag = "I_BotaoDesliga"
+widget = "momentary_button"
+
+[[control]]
+tag = "I_EmergenciaSaudavel"
+widget = "switch"
+
+[[control]]
+tag = "I_Permissivo"
+widget = "switch"
+
+[[indicator]]
+tag = "Q_Motor"
+widget = "lamp"
+
+[[indicator]]
+tag = "Q_LampadaFalha"
+widget = "lamp"
