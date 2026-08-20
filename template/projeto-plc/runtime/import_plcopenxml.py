@@ -373,6 +373,80 @@ def render_data_type(data_type):
     return f"TYPE {name} : {render_type(base)};\nEND_TYPE\n"
 
 
+# --------------------------------------------------------------------------
+# Regras de adaptacao aplicadas na importacao. Todas ficam registradas em
+# plcopen/REGRAS_IMPORTACAO.md, com o que foi tocado em cada uma.
+# --------------------------------------------------------------------------
+
+# Servicos de sistema do fabricante. O relogio e o calendario dependem do CP,
+# entao o projeto passa a ler variaveis proprias e cada plataforma preenche.
+SYSTEM_SERVICES = [
+    (re.compile(r"\bSysTimeCore\s*\.\s*SysTimeGetUs\s*\(\s*(\w+)\s*\)\s*;", re.I),
+     r"\1 := Sistema_TempoUs;", "SysTimeCore.SysTimeGetUs"),
+    (re.compile(r"\bGetDateAndTime\s*\(\s*(\w+)\s*\)\s*;", re.I),
+     r"\1 := Sistema_DataHora;", "GetDateAndTime"),
+    (re.compile(r"\bNextoStandard\s*\.\s*GetDayOfWeek\s*\(\s*\)", re.I),
+     "Sistema_DiaDaSemana", "NextoStandard.GetDayOfWeek"),
+]
+SYSTEM_VARIABLES = [
+    ("Sistema_TempoUs", "ULINT", "relogio monotonico em microssegundos"),
+    ("Sistema_DataHora", "EXTENDED_DATE_AND_TIME", "data e hora corrente"),
+    ("Sistema_DiaDaSemana", "DAYS_OF_WEEK", "dia da semana"),
+]
+# Tipos que o fabricante traz de biblioteca e o projeto passa a declarar, para
+# ficar autocontido. Diagnostico de hardware nao entra: e do CP, nao da logica.
+PORTABLE_LIBRARY_TYPES = {
+    "EXTENDED_DATE_AND_TIME": (
+        "TYPE EXTENDED_DATE_AND_TIME :\nSTRUCT\n"
+        "    byYear : UINT;\n    byMonth : USINT;\n    byDay : USINT;\n"
+        "    byHours : USINT;\n    byMinutes : USINT;\n    bySeconds : USINT;\n"
+        "    wMilliseconds : UINT;\nEND_STRUCT;\nEND_TYPE\n"),
+    "DAYS_OF_WEEK": "TYPE DAYS_OF_WEEK : USINT; END_TYPE\n",
+}
+
+
+def apply_system_services(source, usados):
+    for padrao, troca, nome in SYSTEM_SERVICES:
+        source, n = padrao.subn(troca, source)
+        if n:
+            usados[nome] = usados.get(nome, 0) + n
+    return source
+
+
+def relocate_global_blocks(sources, listas, block_types, movidos, nao_movidos):
+    """Move instancia de FB global para dentro da POU que a chama.
+
+    Instancia de FB no escopo global e legal na norma e o MATIEC aceita, mas o
+    STruC++ 0.6.3 recusa chamar. Quando so uma POU usa a instancia, a declaracao
+    vai para la como VAR RETAIN, preservando a retencao que a GVL dava.
+    """
+    instancias = {}
+    for gvl_name, variables in listas.items():
+        for variable in variables:
+            tipo = render_type(child(variable, "type"))
+            if tipo.upper() in block_types:
+                instancias[flatten_name(gvl_name, variable.get("name"))] = tipo
+    if not instancias:
+        return sources
+    por_arquivo = {}
+    for nome, tipo in instancias.items():
+        chamadores = [arquivo for arquivo, texto in sources.items()
+                      if re.search(rf"(?<![.\w]){re.escape(nome)}\s*\(", texto, re.I)]
+        if len(chamadores) != 1:
+            nao_movidos.append((nome, tipo, len(chamadores)))
+            continue
+        por_arquivo.setdefault(chamadores[0], []).append((nome, tipo))
+    for arquivo, itens in por_arquivo.items():
+        corpo = "".join(f"    {nome} : {tipo};\n" for nome, tipo in itens)
+        declaracao = ("VAR RETAIN\n"
+                      "    (* Instancias vindas da lista global; RETAIN preserva a retencao. *)\n"
+                      f"{corpo}END_VAR\n")
+        sources[arquivo] = re.sub(r"(?m)^((?:PROGRAM|FUNCTION_BLOCK|FUNCTION)\s+\w+.*\n)",
+                                  lambda m: m.group(1) + declaracao, sources[arquivo], count=1)
+        movidos.extend((nome, tipo, arquivo) for nome, tipo in itens)
+    return sources
+
+
 def collect_globals(root):
     """Mapa GVL -> membros, na ordem do XML, mesclando GVLs de nome repetido."""
     # Uma mesma GVL pode aparecer em mais de um resource do XML, repetindo
@@ -465,7 +539,74 @@ def qualified_rewriter(listas, ambiguos_encontrados):
     return trocar
 
 
-def render_flat_globals(listas):
+def render_rules(manifest, listas):
+    """Documento das regras aplicadas, gerado a cada importacao."""
+    a = manifest["adaptations"]
+    linhas = ["# Regras aplicadas na importacao", "",
+              f"Origem: `{manifest['source']}`", "",
+              "Toda adaptacao abaixo e automatica. O XML original fica intacto em",
+              "`plcopen/original.xml` e continua sendo a autoridade.", "",
+              "## 1. Uma unica lista de variaveis globais", "",
+              f"As {len(listas)} GVLs do fabricante viraram um unico `VAR_GLOBAL` em",
+              "`globals/00_GlobalVars.st`, com secoes separadas por comentario. Cada nome",
+              "recebe o prefixo da lista de origem, porque a norma IEC nao tem GVL com nome",
+              "e membros homonimos de listas diferentes colidiriam.", "",
+              "| lista | membros |", "|---|---|"]
+    linhas += [f"| `{nome}` | {len(vars)} |" for nome, vars in listas.items() if vars]
+    linhas += ["", "O codigo e reescrito junto: `Field.AO` vira `Field_AO`. Referencia sem",
+               "prefixo tambem, quando o nome pertence a uma unica lista.", ""]
+    if manifest.get("ambiguousGlobals"):
+        linhas += ["Nomes ambiguos preservados, precisam de decisao humana:", ""]
+        linhas += [f"- `{n}`" for n in manifest["ambiguousGlobals"]] + [""]
+    linhas += ["## 2. Servicos de sistema do fabricante", ""]
+    if a["systemServices"]:
+        linhas += ["Relogio e calendario dependem do CP. As chamadas de biblioteca foram",
+                   "trocadas por variaveis do proprio projeto, preenchidas pela plataforma:", "",
+                   "| chamada original | ocorrencias | variavel do projeto |", "|---|---|---|"]
+        mapa = {"SysTimeCore.SysTimeGetUs": "Sistema_TempoUs",
+                "GetDateAndTime": "Sistema_DataHora",
+                "NextoStandard.GetDayOfWeek": "Sistema_DiaDaSemana"}
+        linhas += [f"| `{k}` | {v} | `{mapa.get(k, '-')}` |" for k, v in a["systemServices"].items()]
+        linhas += ["", "Ao levar para um CP real, preencha essas variaveis com o servico",
+                   "equivalente do fabricante.", ""]
+    else:
+        linhas += ["Nenhuma chamada de servico de sistema encontrada.", ""]
+    linhas += ["## 3. Instancias de bloco no escopo global", ""]
+    if a["relocatedBlockInstances"]:
+        linhas += ["Instancia de FB global e legal na norma, mas o STruC++ 0.6.3 nao a chama.",
+                   "Quando uma unica POU usa a instancia, a declaracao vai para dentro dela",
+                   "como `VAR RETAIN`, preservando a retencao que a lista global dava.", "",
+                   "| instancia | tipo | movida para |", "|---|---|---|"]
+        linhas += [f"| `{i['name']}` | `{i['type']}` | `{i['movedTo']}` |" for i in a["relocatedBlockInstances"]]
+        linhas += [""]
+    else:
+        linhas += ["Nenhuma instancia de bloco no escopo global.", ""]
+    if a["notRelocated"]:
+        linhas += ["Nao movidas, por serem usadas por mais de uma POU ou por nenhuma:", "",
+                   "| instancia | tipo | POUs que chamam |", "|---|---|---|"]
+        linhas += [f"| `{i['name']}` | `{i['type']}` | {i['callers']} |" for i in a["notRelocated"]]
+        linhas += [""]
+    linhas += ["## 4. Tipos de biblioteca declarados no projeto", ""]
+    if a["portableTypes"]:
+        linhas += ["Passam a ser declarados em `types/`, para o projeto ficar autocontido:", ""]
+        linhas += [f"- `{n}`" for n in a["portableTypes"]] + [""]
+    linhas += ["Diagnostico de hardware do fabricante nao e declarado: pertence ao CP e nao",
+               "entra no executavel portatil. Fica listado em `IMPORT_REPORT.md`.", "",
+               "## 5. Conversao de LD e FBD para ST", ""]
+    conversoes = manifest["diagnostics"].get("conversions", [])
+    if conversoes:
+        linhas += ["Contato em serie vira `AND`, ligacao paralela vira `OR`, bobina vira",
+                   "atribuicao e o `EN` de cada bloco vira `IF`. Funcao padrao desenhada como",
+                   "bloco vira expressao: `MOVE` vira atribuicao, `ADD` vira `+`.", "",
+                   "| POU | de | arquivo |", "|---|---|---|"]
+        linhas += [f"| `{c['name']}` | {c['from']} | `{c['file']}` |" for c in conversoes]
+        linhas += [""]
+    else:
+        linhas += ["Nenhuma POU em linguagem grafica.", ""]
+    return "\n".join(linhas)
+
+
+def render_flat_globals(listas, relocados=(), sistema=()):
     """Uma unica GVL, secoes separadas por comentario.
 
     Sem o nome da GVL o ST vira IEC padrao e compila em qualquer lugar; o
@@ -480,8 +621,17 @@ def render_flat_globals(listas):
         lines.append("")
         lines.append(f"    (* ===== {gvl_name} ===== *)")
         for variable in variables:
+            nome = flatten_name(gvl_name, variable.get("name"))
+            if nome in relocados:
+                lines.append(f"    (* {nome}: instancia movida para a POU que a chama *)")
+                continue
             linha = variable_line(variable).lstrip()
-            lines.append("    " + linha.replace(variable.get("name"), flatten_name(gvl_name, variable.get("name")), 1))
+            lines.append("    " + linha.replace(variable.get("name"), nome, 1))
+    if sistema:
+        lines.append("")
+        lines.append("    (* ===== Sistema: preenchido pela plataforma, varia por CP ===== *)")
+        for nome, tipo, descricao in sistema:
+            lines.append(f"    {nome} : {tipo};  (* {descricao} *)")
     lines.append("END_VAR")
     return "\n".join(lines) + "\n"
 
@@ -537,16 +687,29 @@ def main():
     ambiguos_sem_prefixo = set()
     reescrever = qualified_rewriter(listas_globais, ambiguos_sem_prefixo)
     pous = [item for item in root.iter() if local(item) == "pou"]
+    servicos_usados = {}
+    fontes = {}
+    destinos = {}
     for index, pou in enumerate(pous, 1):
         source, body_kind, body = render_pou(pou)
-        source = reescrever(source)
+        source = apply_system_services(reescrever(source), servicos_usados)
         stem = f"{index:02d}_{safe_name(pou.get('name'))}"
         folder = {"program": "programs", "functionBlock": "blocks", "function": "functions"}.get(pou.get("pouType"), "programs") if args.active else "pous"
-        filename = f"{stem}.st"
-        (output / folder / filename).write_text(source, encoding="utf-8")
+        filename = f"{folder}/{stem}.st"
+        fontes[filename] = source
+        destinos[filename] = (pou, body_kind, body, stem)
+
+    block_types = {pou.get("name", "").upper() for pou in pous if pou.get("pouType") == "functionBlock"}
+    movidos, nao_movidos = [], []
+    fontes = relocate_global_blocks(fontes, listas_globais, block_types, movidos, nao_movidos)
+    relocados = {nome for nome, _, _ in movidos}
+
+    for filename, source in fontes.items():
+        pou, body_kind, body, stem = destinos[filename]
+        (output / filename).write_text(source, encoding="utf-8")
         if body_kind != "ST" and body is not None and not args.active:
             (output / "pous" / f"{stem}.{body_kind.lower()}.xml").write_text(ET.tostring(body, encoding="unicode"), encoding="utf-8")
-        manifest["pous"].append({"name": pou.get("name"), "type": pou.get("pouType"), "originalLanguage": body_kind, "runtimeLanguage": "ST", "file": f"{folder}/{filename}"})
+        manifest["pous"].append({"name": pou.get("name"), "type": pou.get("pouType"), "originalLanguage": body_kind, "runtimeLanguage": "ST", "file": filename})
 
     data_types = [item for item in root.iter() if local(item) == "dataType"]
     for index, data_type in enumerate(data_types, 1):
@@ -554,8 +717,18 @@ def main():
         (output / "types" / filename).write_text(render_data_type(data_type), encoding="utf-8")
         manifest["dataTypes"].append({"name": data_type.get("name"), "file": f"types/{filename}"})
 
+    tipos_portateis = [nome for nome in PORTABLE_LIBRARY_TYPES
+                       if nome.upper() not in {d.get("name", "").upper() for d in data_types}]
+    for ordem, nome in enumerate(tipos_portateis, len(data_types) + 1):
+        alvo = f"{ordem:02d}_{safe_name(nome)}.st"
+        (output / "types" / alvo).write_text(PORTABLE_LIBRARY_TYPES[nome], encoding="utf-8")
+        manifest["dataTypes"].append({"name": nome, "file": f"types/{alvo}", "origin": "portable"})
+
     filename = "00_GlobalVars.st"
-    (output / "globals" / filename).write_text(render_flat_globals(listas_globais), encoding="utf-8")
+    (output / "globals" / filename).write_text(
+        render_flat_globals(listas_globais, relocados,
+                            SYSTEM_VARIABLES if servicos_usados else []),
+        encoding="utf-8")
     for name, variables in listas_globais.items():
         manifest["globalVars"].append({
             "name": name,
@@ -564,6 +737,12 @@ def main():
             "members": [variable.get("name") for variable in variables],
         })
     manifest["globalsLayout"] = "flat"
+    manifest["adaptations"] = {
+        "systemServices": servicos_usados,
+        "relocatedBlockInstances": [{"name": n, "type": tp, "movedTo": f} for n, tp, f in movidos],
+        "notRelocated": [{"name": n, "type": tp, "callers": c} for n, tp, c in nao_movidos],
+        "portableTypes": tipos_portateis,
+    }
     if ambiguos_sem_prefixo:
         manifest["ambiguousGlobals"] = sorted(ambiguos_sem_prefixo)
 
@@ -594,6 +773,10 @@ def main():
     }
 
     manifest_path = output / ("plcopen/manifest.json" if args.active else "manifest.json")
+    if args.active:
+        # Depois dos diagnosticos, para o documento enxergar as conversoes LD/FBD.
+        (output / "plcopen" / "REGRAS_IMPORTACAO.md").write_text(
+            render_rules(manifest, listas_globais), encoding="utf-8")
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     if args.active:
         diagnostic = manifest["diagnostics"]
