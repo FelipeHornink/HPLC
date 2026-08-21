@@ -223,5 +223,41 @@ for folder in ("types","functions","blocks","globals","programs"):
 bundle=OUT/f"{export_stem}_Completo.st"; bundle.write_text("\n".join(ordered),encoding="utf-8")
 for aviso in correcoes:
     print(f"Correcao: {aviso}")
+# Perfil portatil: a aplicacao vale em qualquer fabricante, a descricao de
+# hardware nao. Os blocos <data name="Device"> embutem um dump proprietario dos
+# modulos Nexto e, apesar de marcados handleUnknown="discard", o importador do
+# CODESYS 3.5.22 tenta interpreta-los e aborta com erro generico de documento
+# XML antes de processar qualquer POU. Sao 92% do tamanho do arquivo.
+if original_path.exists():
+    portatil=ET.parse(xml_path)
+    raiz=portatil.getroot()
+    removidos=0
+    for pai in list(raiz.iter()):
+        for filho in list(pai):
+            if filho.tag.split("}")[-1]=="data" and filho.get("name")=="Device":
+                pai.remove(filho); removidos+=1
+    # addData que ficou sem conteudo, e configuracao de modulo que so existia
+    # para carregar esse dump, saem tambem.
+    vazios=0
+    for _ in range(3):
+        for pai in list(raiz.iter()):
+            for filho in list(pai):
+                nome=filho.tag.split("}")[-1]
+                if nome=="addData" and len(filho)==0:
+                    pai.remove(filho); vazios+=1
+                elif nome=="configuration" and filho.get("name")!="Device" and len(filho)==0:
+                    pai.remove(filho); vazios+=1
+    destino=OUT/f"{export_stem}_Aplicacao.xml"
+    ET.indent(portatil,space="  "); portatil.write(destino,encoding="utf-8",xml_declaration=True)
+    texto=destino.read_text(encoding="utf-8")
+    texto=re.sub(r"<html:xhtml(\s*/?)>", lambda m: f'<xhtml xmlns="{XHTML}"{m.group(1) or ""}>', texto)
+    texto=texto.replace("</html:xhtml>","</xhtml>")
+    if "html:" not in texto:
+        texto=texto.replace(f' xmlns:html="{XHTML}"', "")
+    destino.write_text(texto, encoding="utf-8")
+    print(f"Portatil: {destino}")
+    print(f"   {removidos} dumps de hardware e {vazios} nos vazios removidos; "
+          f"{destino.stat().st_size // 1024} KB contra {xml_path.stat().st_size // 1024} KB")
+
 print(f"PLCopenXML: {xml_path}")
 print(f"ST consolidado: {bundle}")
