@@ -67,7 +67,23 @@ if texto:
     grupos = Counter(c.split("/")[-1].split(":")[0] for c in texto)
     for g, n in grupos.most_common(): print(f"  {n:5d}  {g}")
 
-falhou = bool(so_original or so_exportado or atributos) or any(
+# Correcoes deliberadas de defeito do arquivo do fabricante. Cada uma precisa
+# estar aqui, para nao virar porta de entrada de divergencia acidental.
+CORRECOES = {"pouInstance": {"typeName"}}
+
+
+def corrigido(caminho, antes, depois):
+    tipo = caminho.split("/")[-1].split(":")[0].split("[")[0]
+    permitidos = CORRECOES.get(tipo, set())
+    mudados = {k for k in set(antes) | set(depois) if antes.get(k) != depois.get(k)}
+    return mudados and mudados <= permitidos and all(not antes.get(k) for k in mudados)
+
+
+inesperados = [item for item in atributos if not corrigido(*item)]
+corrigidos = len(atributos) - len(inesperados)
+if corrigidos:
+    print(f"\ncorrecoes deliberadas aceitas: {corrigidos}")
+falhou = bool(so_original or so_exportado or inesperados) or any(
     c.split("/")[-1].split("[")[0] != "xhtml" for c in texto)
 print()
 if falhou:

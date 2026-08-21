@@ -171,6 +171,21 @@ if original_path.exists() and manifest_path.exists():
         texto=next(((x.text or "") for x in body.iter() if x.tag.split("}")[-1]=="xhtml"),"")
         generated_bodies[item.get("name")]=para_o_fabricante(texto)
 
+    # O MasterTool 3.76 exporta <pouInstance typeName=""> vazio, e o esquema TC6
+    # exige o tipo. Sem ele o importador nao vincula a tarefa ao programa. Quando
+    # existe uma POU com o mesmo nome da instancia, o vinculo e obvio e a
+    # correcao fica registrada em correcoes_aplicadas.
+    nomes_pou={item.get("name") for item in original_root.iter() if item.tag.split("}")[-1]=="pou"}
+    correcoes=[]
+    for instancia in (x for x in original_root.iter() if x.tag.split("}")[-1]=="pouInstance"):
+        if instancia.get("typeName"): continue
+        nome=instancia.get("name") or ""
+        if nome in nomes_pou:
+            instancia.set("typeName",nome)
+            correcoes.append(f'pouInstance {nome}: typeName vazio preenchido com "{nome}"')
+        else:
+            correcoes.append(f"pouInstance {nome}: typeName vazio e sem POU de mesmo nome; nao corrigido")
+
     trocados=0
     for original_pou in (item for item in original_root.iter() if item.tag.split("}")[-1]=="pou"):
         codigo=generated_bodies.get(original_pou.get("name"))
@@ -206,5 +221,7 @@ ordered=[]
 for folder in ("types","functions","blocks","globals","programs"):
     for source in files(folder): ordered.append(f"(* ===== {folder}/{source.name} ===== *)\n{source_text(source).strip()}\n")
 bundle=OUT/f"{export_stem}_Completo.st"; bundle.write_text("\n".join(ordered),encoding="utf-8")
+for aviso in correcoes:
+    print(f"Correcao: {aviso}")
 print(f"PLCopenXML: {xml_path}")
 print(f"ST consolidado: {bundle}")
