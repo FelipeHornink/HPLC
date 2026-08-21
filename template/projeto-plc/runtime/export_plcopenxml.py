@@ -146,14 +146,35 @@ if original_path.exists() and manifest_path.exists():
         new=next((x for x in generated if x.tag.split("}")[-1]=="baseType"),None)
         if old is not None: original_type.remove(old)
         if new is not None: original_type.insert(0,copy.deepcopy(new))
-    generated_globals={item.get("name"):item for item in resource if item.tag.split("}")[-1]=="globalVars"}
-    global_file_to_name={Path(item["file"]).stem:item["name"] for item in import_manifest.get("globalVars",[])}
-    generated_by_original={global_file_to_name.get(stem,stem):node for stem,node in generated_globals.items()}
-    for original_gvl in (item for item in original_root.iter() if item.tag.split("}")[-1]=="globalVars"):
-        generated=generated_by_original.get(original_gvl.get("name"))
-        if generated is None: continue
-        preserved=[copy.deepcopy(x) for x in original_gvl if x.tag.split("}")[-1]!="variable"]
-        original_gvl[:] = [copy.deepcopy(x) for x in generated if x.tag.split("}")[-1]=="variable"] + preserved
+    # O projeto guarda as globais numa lista unica, com o nome de cada lista do
+    # fabricante virando prefixo do nome da variavel. O ST exportado usa esses
+    # nomes, entao o XML precisa declarar a mesma lista: redistribuir por GVL
+    # produziria um arquivo onde o codigo diz Field_DI e a GVL diz DI.
+    flat = import_manifest.get("globalsLayout") == "flat"
+    generated_flat=[copy.deepcopy(variable) for node in resource
+                    if node.tag.split("}")[-1]=="globalVars"
+                    for variable in node if variable.tag.split("}")[-1]=="variable"]
+    original_gvls=[item for item in original_root.iter() if item.tag.split("}")[-1]=="globalVars"]
+    if flat and generated_flat and original_gvls:
+        alvo=original_gvls[0]
+        alvo.set("name","GlobalVars")
+        # Sem prefixo de lista, qualified_only nao faz sentido; e o objectid do
+        # fabricante nao vale para uma lista que nao e mais a dele.
+        alvo[:] = generated_flat
+        for extra in original_gvls[1:]:
+            for pai in original_root.iter():
+                if extra in list(pai):
+                    pai.remove(extra)
+                    break
+    elif original_gvls:
+        generated_globals={item.get("name"):item for item in resource if item.tag.split("}")[-1]=="globalVars"}
+        global_file_to_name={Path(item["file"]).stem:item["name"] for item in import_manifest.get("globalVars",[])}
+        generated_by_original={global_file_to_name.get(stem,stem):node for stem,node in generated_globals.items()}
+        for original_gvl in original_gvls:
+            generated=generated_by_original.get(original_gvl.get("name"))
+            if generated is None: continue
+            preserved=[copy.deepcopy(x) for x in original_gvl if x.tag.split("}")[-1]!="variable"]
+            original_gvl[:] = [copy.deepcopy(x) for x in generated if x.tag.split("}")[-1]=="variable"] + preserved
     tree=original_tree
     xml_path=OUT/f"{export_stem}_PLC_Codex.xml"
 else:

@@ -752,7 +752,10 @@ def main():
         library = {key: item.get(key) for key in ("Name", "Namespace", "DefaultResolution", "SystemLibrary") if item.get(key) is not None}
         libraries.append(library)
     manifest["libraries"] = libraries
+    # Tipos que o projeto passou a declarar contam como resolvidos; sem isso o
+    # export acusava pendencia de algo que esta declarado em types/.
     defined = {item.get("name", "").lower() for item in root.iter() if local(item) in {"pou", "dataType"}}
+    defined.update(item["name"].lower() for item in manifest["dataTypes"])
     builtins = {"BOOL","BYTE","WORD","DWORD","LWORD","SINT","USINT","INT","UINT","DINT","UDINT","LINT","ULINT","REAL","LREAL","TIME","DATE","TOD","DT","STRING","WSTRING","TON","TOF","TP","R_TRIG","F_TRIG","CTU","CTD","CTUD"}
     unresolved_types = sorted({item.get("name") for item in root.iter() if local(item) == "derived" and item.get("name", "").lower() not in defined and item.get("name", "").upper() not in builtins})
     # Funcoes padrao desenhadas como bloco viram operador em ST na conversao do
