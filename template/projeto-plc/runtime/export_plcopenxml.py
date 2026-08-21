@@ -263,8 +263,28 @@ if original_path.exists():
 
     for item in (x for x in original_root.iter() if x.tag.split("}")[-1]=="dataType"):
         destino_dt.append(sem_extensao(item))
+    # Corpo grafico nao e portatil: as redes LD e FBD do fabricante dependem de
+    # <vendorElement> cujo conteudo vive em addData proprietario. Sem o addData o
+    # elemento fica incompleto e o esquema recusa; com ele o arquivo deixa de ser
+    # neutro. No arquivo da aplicacao toda POU leva ST, que e a forma que qualquer
+    # ferramenta le. O Ladder original continua no arquivo completo.
+    graficas=[]
     for item in (x for x in original_root.iter() if x.tag.split("}")[-1]=="pou"):
-        destino_pou.append(sem_extensao(item))
+        copia=sem_extensao(item)
+        corpo=next((x for x in copia if x.tag.split("}")[-1]=="body"), None)
+        codigo=generated_bodies.get(item.get("name"))
+        if corpo is not None and codigo is not None:
+            linguagem=next((x.tag.split("}")[-1] for x in corpo), None)
+            if linguagem and linguagem != "ST":
+                graficas.append(f"{item.get('name')} ({linguagem})")
+            copia.remove(corpo)
+            novo_corpo=ET.SubElement(copia,q("body"))
+            ET.SubElement(ET.SubElement(novo_corpo,q("ST")),f"{{{XHTML}}}xhtml").text=codigo
+            # body vem antes de documentation e addData na sequencia do esquema
+            ordem=["interface","actions","transitions","body","documentation","addData"]
+            copia[:] = sorted(copia, key=lambda c: ordem.index(c.tag.split("}")[-1])
+                              if c.tag.split("}")[-1] in ordem else len(ordem))
+        destino_pou.append(copia)
     instancias=ET.SubElement(aplicacao,q("instances"))
     configuracoes=ET.SubElement(instancias,q("configurations"))
     configuracao=ET.SubElement(configuracoes,q("configuration"),{"name":"Config"})
@@ -313,6 +333,8 @@ if original_path.exists():
     print(f"   {len(destino_pou)} POUs, {len(destino_dt)} DUTs e "
           f"{len([x for x in recurso if x.tag.split('}')[-1]=='globalVars'])} GVLs, "
           f"sem extensao de fabricante; {destino.stat().st_size // 1024} KB")
+    if graficas:
+        print(f"   {len(graficas)} POUs graficas convertidas para ST: {', '.join(graficas)}")
     for base in renomeadas:
         print(f"   Lista {base} tinha bloco constante e normal juntos; o constante "
               f"virou {base}_Const, como a norma exige.")
