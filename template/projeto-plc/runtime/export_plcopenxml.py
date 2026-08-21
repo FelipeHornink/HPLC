@@ -269,8 +269,28 @@ if original_path.exists():
     configuracoes=ET.SubElement(instancias,q("configurations"))
     configuracao=ET.SubElement(configuracoes,q("configuration"),{"name":"Config"})
     recurso=ET.SubElement(configuracao,q("resource"),{"name":"Application"})
+    # A norma nao permite VAR_GLOBAL e VAR_GLOBAL CONSTANT na mesma lista, e o
+    # importador do CODESYS recusa o arquivo por causa disso. O MasterTool exporta
+    # Special_Variables em tres blocos, dois normais e um constante. Aqui os
+    # blocos de mesma natureza sao unidos e o bloco constante ganha lista propria.
+    listas={}
     for gvl in (x for x in original_root.iter() if x.tag.split("}")[-1]=="globalVars"):
-        recurso.append(sem_extensao(gvl))
+        base=gvl.get("name") or "GlobalVars"
+        constante=gvl.get("constant")=="true"
+        chave=(base, constante)
+        atual=listas.get(chave)
+        if atual is None:
+            limpo=sem_extensao(gvl)
+            limpo.set("name", f"{base}_Const" if constante else base)
+            listas[chave]=limpo
+        else:
+            vistos={v.get("name") for v in atual if v.tag.split("}")[-1]=="variable"}
+            for v in sem_extensao(gvl):
+                if v.tag.split("}")[-1]=="variable" and v.get("name") not in vistos:
+                    atual.append(v); vistos.add(v.get("name"))
+    renomeadas=[chave[0] for chave in listas if chave[1] and (chave[0], False) in listas]
+    for lista in listas.values():
+        recurso.append(lista)
     for tarefa in (x for x in original_root.iter() if x.tag.split("}")[-1]=="task"):
         recurso.append(sem_extensao(tarefa))
 
@@ -282,6 +302,9 @@ if original_path.exists():
     print(f"   {len(destino_pou)} POUs, {len(destino_dt)} DUTs e "
           f"{len([x for x in recurso if x.tag.split('}')[-1]=='globalVars'])} GVLs, "
           f"sem extensao de fabricante; {destino.stat().st_size // 1024} KB")
+    for base in renomeadas:
+        print(f"   Lista {base} tinha bloco constante e normal juntos; o constante "
+              f"virou {base}_Const, como a norma exige.")
 
 print(f"Completo: {xml_path}")
 print(f"ST consolidado: {bundle}")
