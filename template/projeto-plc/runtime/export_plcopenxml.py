@@ -42,6 +42,9 @@ def normalizar(texto):
     return texto.replace("<?xml version='1.0' encoding='utf-8'?>", '<?xml version="1.0" encoding="utf-8"?>', 1)
 
 
+def safe(valor): return re.sub(r"[^A-Za-z0-9_.-]+", "_", valor)
+
+
 def q(name): return f"{{{PLC}}}{name}"
 def files(folder): return sorted((ROOT / folder).glob("*.st")) if (ROOT / folder).exists() else []
 
@@ -338,6 +341,27 @@ if original_path.exists():
     for base in renomeadas:
         print(f"   Lista {base} tinha bloco constante e normal juntos; o constante "
               f"virou {base}_Const, como a norma exige.")
+
+# Rotinas soltas: um arquivo ST por POU, para colar uma de cada vez em qualquer
+# IDE. E o caminho que sempre funciona, sem depender de importador.
+rotinas=OUT/"rotinas"
+for antigo in rotinas.glob("*.st"):
+    antigo.unlink()
+rotinas.mkdir(exist_ok=True)
+escritas=0
+for nome, codigo in sorted(generated_bodies.items()):
+    fonte=next((x for pasta in ("programs","blocks","functions")
+                for x in files(pasta)
+                if re.search(rf"\b(?:PROGRAM|FUNCTION_BLOCK|FUNCTION)\s+{re.escape(nome)}\b",
+                             x.read_text(encoding="utf-8"), re.I)), None)
+    if fonte is None:
+        continue
+    texto=fonte.read_text(encoding="utf-8")
+    declaracoes=texto[:texto.lower().rfind("end_var")+len("end_var")] if "end_var" in texto.lower() else texto.splitlines()[0]
+    fim={"programs":"END_PROGRAM","blocks":"END_FUNCTION_BLOCK","functions":"END_FUNCTION"}[fonte.parent.name]
+    (rotinas/f"{safe(nome)}.st").write_text(f"{declaracoes}\n\n{codigo}\n{fim}\n", encoding="utf-8")
+    escritas+=1
+print(f"Rotinas: {rotinas} ({escritas} arquivos, um por POU)")
 
 print(f"Completo: {xml_path}")
 print(f"ST consolidado: {bundle}")

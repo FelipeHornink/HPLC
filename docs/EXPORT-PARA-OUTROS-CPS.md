@@ -2,11 +2,15 @@
 
 O export gera dois arquivos, cada um com um destino.
 
-| arquivo | uso | conteudo |
+| saida | uso | conteudo |
 |---|---|---|
 | `_Aplicacao.xml` | **qualquer software**: CODESYS, Schneider, ABB, WAGO, MasterTool | so a logica, em ST, no formato da norma |
 | `_Completo.xml` | voltar ao **mesmo** projeto do fabricante | o original inteiro, diferindo so no corpo das POUs |
-| `_ST.st` | colar POU por POU em qualquer IDE | as POUs em texto |
+| `rotinas/*.st` | colar uma rotina de cada vez, em qualquer IDE | um arquivo por POU, declaracao e corpo |
+| `_ST.st` | ler o projeto todo de uma vez | as POUs concatenadas |
+
+As `rotinas/` sao o caminho que sempre funciona: nao dependem de importador nem de
+esquema. Cria-se a POU vazia no IDE de destino e cola-se o arquivo.
 
 ## Receita, validada no CODESYS 3.5 SP22
 
