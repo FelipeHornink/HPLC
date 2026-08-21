@@ -289,10 +289,21 @@ if original_path.exists():
                 if v.tag.split("}")[-1]=="variable" and v.get("name") not in vistos:
                     atual.append(v); vistos.add(v.get("name"))
     renomeadas=[chave[0] for chave in listas if chave[1] and (chave[0], False) in listas]
-    for lista in listas.values():
-        recurso.append(lista)
+    # O esquema TC6 fixa a ordem dos filhos de <resource>: task, globalVars,
+    # pouInstance, documentation, addData. Emitir globalVars antes do task faz o
+    # CODESYS recusar o arquivo inteiro com "elemento filho 'task' invalido".
     for tarefa in (x for x in original_root.iter() if x.tag.split("}")[-1]=="task"):
         recurso.append(sem_extensao(tarefa))
+    for lista in listas.values():
+        recurso.append(lista)
+
+    ORDEM_RESOURCE=["task","globalVars","pouInstance","documentation","addData"]
+    ORDEM_POU=["interface","actions","transitions","body","documentation","addData"]
+    for no, ordem in ((recurso, ORDEM_RESOURCE), *((x, ORDEM_POU) for x in destino_pou)):
+        indices=[ordem.index(c.tag.split("}")[-1]) for c in no if c.tag.split("}")[-1] in ordem]
+        if indices != sorted(indices):
+            raise SystemExit(f"ordem de filhos fora do esquema em <{no.tag.split('}')[-1]}>: "
+                             f"{[c.tag.split('}')[-1] for c in no][:6]}")
 
     destino=OUT/f"{export_stem}_Aplicacao.xml"
     arvore=ET.ElementTree(aplicacao)
