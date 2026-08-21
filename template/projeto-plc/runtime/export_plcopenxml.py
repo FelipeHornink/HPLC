@@ -28,6 +28,20 @@ export_stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", source_name)
 # Ordem dos filhos de <pou> exigida pelo esquema PLCopen TC6.
 POU_CHILD_ORDER = ["interface", "actions", "transitions", "body", "documentation", "addData"]
 
+def normalizar(texto):
+    """Ajusta a serializacao do ElementTree a forma que os fabricantes escrevem.
+
+    O corpo ST sai como <html:xhtml>, com o prefixo declarado na raiz; e XML
+    equivalente, mas os importadores sao literais e esperam <xhtml xmlns="...">.
+    A declaracao sai com aspas simples, incomum em exportador .NET.
+    """
+    texto = re.sub(r"<html:xhtml(\s*/?)>", lambda m: f'<xhtml xmlns="{XHTML}"{m.group(1) or ""}>', texto)
+    texto = texto.replace("</html:xhtml>", "</xhtml>")
+    if "html:" not in texto:
+        texto = texto.replace(f' xmlns:html="{XHTML}"', "")
+    return texto.replace("<?xml version='1.0' encoding='utf-8'?>", '<?xml version="1.0" encoding="utf-8"?>', 1)
+
+
 def q(name): return f"{{{PLC}}}{name}"
 def files(folder): return sorted((ROOT / folder).glob("*.st")) if (ROOT / folder).exists() else []
 
@@ -209,13 +223,7 @@ ET.indent(tree,space="  "); tree.write(xml_path,encoding="utf-8",xml_declaration
 # O ElementTree serializa o corpo ST como <html:xhtml>, com o prefixo declarado
 # na raiz. E XML equivalente, mas o MasterTool e o CODESYS esperam a forma que
 # eles mesmos escrevem, <xhtml xmlns="...">, e ignoram o corpo caso contrario.
-texto = xml_path.read_text(encoding="utf-8")
-texto = re.sub(r"<html:xhtml(\s*/?)>",
-               lambda m: f'<xhtml xmlns="{XHTML}"{m.group(1) or ""}>', texto)
-texto = texto.replace("</html:xhtml>", "</xhtml>")
-if "html:" not in texto:
-    texto = texto.replace(f' xmlns:html="{XHTML}"', "")
-xml_path.write_text(texto, encoding="utf-8")
+xml_path.write_text(normalizar(xml_path.read_text(encoding="utf-8")), encoding="utf-8")
 
 ordered=[]
 for folder in ("types","functions","blocks","globals","programs"):
@@ -250,10 +258,7 @@ if original_path.exists():
     destino=OUT/f"{export_stem}_Aplicacao.xml"
     ET.indent(portatil,space="  "); portatil.write(destino,encoding="utf-8",xml_declaration=True)
     texto=destino.read_text(encoding="utf-8")
-    texto=re.sub(r"<html:xhtml(\s*/?)>", lambda m: f'<xhtml xmlns="{XHTML}"{m.group(1) or ""}>', texto)
-    texto=texto.replace("</html:xhtml>","</xhtml>")
-    if "html:" not in texto:
-        texto=texto.replace(f' xmlns:html="{XHTML}"', "")
+    texto=normalizar(texto)
     destino.write_text(texto, encoding="utf-8")
     print(f"Portatil: {destino}")
     print(f"   {removidos} dumps de hardware e {vazios} nos vazios removidos; "
@@ -292,14 +297,64 @@ if original_path.exists():
     destino=OUT/f"{export_stem}_Neutro.xml"
     ET.indent(neutro,space="  "); neutro.write(destino,encoding="utf-8",xml_declaration=True)
     texto=destino.read_text(encoding="utf-8")
-    texto=re.sub(r"<html:xhtml(\s*/?)>", lambda m: f'<xhtml xmlns="{XHTML}"{m.group(1) or ""}>', texto)
-    texto=texto.replace("</html:xhtml>","</xhtml>")
-    if "html:" not in texto:
-        texto=texto.replace(f' xmlns:html="{XHTML}"', "")
+    texto=normalizar(texto)
     destino.write_text(texto, encoding="utf-8")
     print(f"Neutro: {destino}")
     print("   removidos: " + ", ".join(f"{v} {k}" for k, v in contagem.items() if v)
           + f"; {destino.stat().st_size // 1024} KB")
+
+# Perfil padrao: PLCopenXML como a norma TC6 descreve, sem nenhuma extensao de
+# fabricante. Nem o MasterTool nem o CODESYS escrevem assim — os dois deixam
+# types/pous vazio e guardam tudo em addData — mas e a forma que um importador
+# aderente ao padrao aberto deve ler, e a unica configuracao ainda nao testada.
+if original_path.exists():
+    padrao=ET.Element(q("project"))
+    ET.SubElement(padrao,q("fileHeader"),{
+        "companyName":"PLC Codex","productName":"PLC Codex","productVersion":"1.0",
+        "creationDateTime":dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()})
+    cabecalho=ET.SubElement(padrao,q("contentHeader"),{
+        "name":export_stem,
+        "modificationDateTime":dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()})
+    coordenadas=ET.SubElement(cabecalho,q("coordinateInfo"))
+    for lingua in ("fbd","ld","sfc"):
+        ET.SubElement(ET.SubElement(coordenadas,q(lingua)),q("scaling"),{"x":"1","y":"1"})
+    tipos=ET.SubElement(padrao,q("types"))
+    destino_dt=ET.SubElement(tipos,q("dataTypes"))
+    destino_pou=ET.SubElement(tipos,q("pous"))
+
+    def sem_extensao(no):
+        limpo=copy.deepcopy(no)
+        for _ in range(4):
+            for pai in list(limpo.iter()):
+                for filho in list(pai):
+                    if filho.tag.split("}")[-1]=="addData":
+                        pai.remove(filho)
+        return limpo
+
+    for item in (x for x in original_root.iter() if x.tag.split("}")[-1]=="dataType"):
+        destino_dt.append(sem_extensao(item))
+    for item in (x for x in original_root.iter() if x.tag.split("}")[-1]=="pou"):
+        destino_pou.append(sem_extensao(item))
+
+    instancias=ET.SubElement(padrao,q("instances"))
+    configuracoes=ET.SubElement(instancias,q("configurations"))
+    configuracao=ET.SubElement(configuracoes,q("configuration"),{"name":"Config"})
+    recurso=ET.SubElement(configuracao,q("resource"),{"name":"Application"})
+    for gvl in (x for x in original_root.iter() if x.tag.split("}")[-1]=="globalVars"):
+        recurso.append(sem_extensao(gvl))
+    for tarefa in (x for x in original_root.iter() if x.tag.split("}")[-1]=="task"):
+        recurso.append(sem_extensao(tarefa))
+
+    destino=OUT/f"{export_stem}_Padrao.xml"
+    arvore=ET.ElementTree(padrao)
+    ET.indent(arvore,space="  "); arvore.write(destino,encoding="utf-8",xml_declaration=True)
+    texto=destino.read_text(encoding="utf-8")
+    texto=normalizar(texto)
+    destino.write_text(texto, encoding="utf-8")
+    print(f"Padrao TC6: {destino}")
+    print(f"   {len(destino_pou)} POUs e {len(destino_dt)} DUTs em types/, "
+          f"{len([x for x in recurso if x.tag.split('}')[-1]=='globalVars'])} GVLs, "
+          f"sem extensao de fabricante; {destino.stat().st_size // 1024} KB")
 
 print(f"PLCopenXML: {xml_path}")
 print(f"ST consolidado: {bundle}")
