@@ -259,5 +259,47 @@ if original_path.exists():
     print(f"   {removidos} dumps de hardware e {vazios} nos vazios removidos; "
           f"{destino.stat().st_size // 1024} KB contra {xml_path.stat().st_size // 1024} KB")
 
+# Perfil neutro: para levar a logica a um projeto que nao e o de origem.
+#
+# MasterTool e CODESYS nao usam types/pous; ambos guardam POU e DUT dentro da
+# extensao http://www.3s-software.com/plcopenxml/pou, e amarram cada objeto ao
+# GUID do pai pelo ProjectStructure. Importar num projeto diferente falha porque
+# o Application de destino tem outro GUID: o objeto nao tem onde se encaixar, e
+# a lista de itens insereveis sai vazia mesmo com o alvo certo selecionado.
+#
+# Sem ProjectStructure e sem ObjectId nao ha vinculo a resolver, e o importador
+# insere no no selecionado. A descricao de hardware sai junto, porque descreve
+# um CP que o destino nao tem.
+if original_path.exists():
+    neutro=ET.parse(xml_path)
+    raiz=neutro.getroot()
+    contagem={"Device":0,"ObjectId":0,"ProjectStructure":0,"configuration":0}
+    for _ in range(4):
+        for pai in list(raiz.iter()):
+            for filho in list(pai):
+                nome=filho.tag.split("}")[-1]
+                alvo=filho.get("name") or ""
+                if nome=="data" and alvo=="Device":
+                    pai.remove(filho); contagem["Device"]+=1
+                elif nome=="data" and alvo.endswith("/objectid"):
+                    pai.remove(filho); contagem["ObjectId"]+=1
+                elif nome=="data" and alvo.endswith("/projectstructure"):
+                    pai.remove(filho); contagem["ProjectStructure"]+=1
+                elif nome=="configuration" and filho.get("name")!="Device":
+                    pai.remove(filho); contagem["configuration"]+=1
+                elif nome=="addData" and len(filho)==0:
+                    pai.remove(filho)
+    destino=OUT/f"{export_stem}_Neutro.xml"
+    ET.indent(neutro,space="  "); neutro.write(destino,encoding="utf-8",xml_declaration=True)
+    texto=destino.read_text(encoding="utf-8")
+    texto=re.sub(r"<html:xhtml(\s*/?)>", lambda m: f'<xhtml xmlns="{XHTML}"{m.group(1) or ""}>', texto)
+    texto=texto.replace("</html:xhtml>","</xhtml>")
+    if "html:" not in texto:
+        texto=texto.replace(f' xmlns:html="{XHTML}"', "")
+    destino.write_text(texto, encoding="utf-8")
+    print(f"Neutro: {destino}")
+    print("   removidos: " + ", ".join(f"{v} {k}" for k, v in contagem.items() if v)
+          + f"; {destino.stat().st_size // 1024} KB")
+
 print(f"PLCopenXML: {xml_path}")
 print(f"ST consolidado: {bundle}")
