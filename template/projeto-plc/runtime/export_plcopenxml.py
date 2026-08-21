@@ -6,6 +6,7 @@ import re
 import xml.etree.ElementTree as ET
 import copy
 import json
+import uuid
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "export"
@@ -166,14 +167,35 @@ if original_path.exists() and manifest_path.exists():
     if flat and generated_flat and original_gvls:
         alvo=original_gvls[0]
         alvo.set("name","GlobalVars")
-        # Sem prefixo de lista, qualified_only nao faz sentido; e o objectid do
-        # fabricante nao vale para uma lista que nao e mais a dele.
+        # O CODESYS decide onde colocar cada objeto pelo ProjectStructure, que
+        # casa por ObjectId. A lista consolidada precisa de um id proprio, senao
+        # ela nao existe naquele mapa e o import nao acha onde inseri-la.
+        gvl_id=str(uuid.uuid5(uuid.NAMESPACE_URL, f"plc-codex/globalvars/{export_stem}"))
+        # A lista consolidada nao e mais nenhuma das do fabricante, entao o
+        # objectid dela e novo e o herdado sai junto com o resto do conteudo.
         alvo[:] = generated_flat
+        objectid=ET.SubElement(ET.SubElement(alvo,q("addData")),q("data"),
+                               {"name":"http://www.3s-software.com/plcopenxml/objectid",
+                                "handleUnknown":"discard"})
+        ET.SubElement(objectid,q("ObjectId")).text=gvl_id
         for extra in original_gvls[1:]:
             for pai in original_root.iter():
                 if extra in list(pai):
                     pai.remove(extra)
                     break
+        # O mapa herdado ainda aponta para as 25 listas antigas. Troca as
+        # entradas mortas pela lista consolidada e descarta o que nao existe.
+        existentes={node.text for node in original_root.iter() if node.tag.split("}")[-1]=="ObjectId" and node.text}
+        for estrutura in (x for x in original_root.iter() if x.tag.split("}")[-1]=="ProjectStructure"):
+            substituido=False
+            for pai in list(estrutura.iter()):
+                for filho in list(pai):
+                    if filho.tag.split("}")[-1]!="Object": continue
+                    if filho.get("ObjectId") in existentes: continue
+                    if not substituido:
+                        filho.set("Name","GlobalVars"); filho.set("ObjectId",gvl_id); substituido=True
+                    else:
+                        pai.remove(filho)
     elif original_gvls:
         generated_globals={item.get("name"):item for item in resource if item.tag.split("}")[-1]=="globalVars"}
         global_file_to_name={Path(item["file"]).stem:item["name"] for item in import_manifest.get("globalVars",[])}
