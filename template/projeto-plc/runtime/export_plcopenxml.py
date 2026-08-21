@@ -133,78 +133,57 @@ manifest_path=ROOT/"plcopen"/"manifest.json"
 if original_path.exists() and manifest_path.exists():
     original_tree=ET.parse(original_path); original_root=original_tree.getroot()
     import_manifest=json.loads(manifest_path.read_text(encoding="utf-8"))
-    generated_pous={item.get("name"):item for item in pous}
+    # Estrategia de fidelidade: o XML exportado difere do original apenas no
+    # texto do corpo das POUs. Interface, GVLs, ProjectStructure e extensoes do
+    # fabricante ficam intactas. Assim o arquivo importa onde o original importa,
+    # e o diff estrutural e verificavel: so <xhtml> muda.
+    #
+    # Para isso o ST volta a forma do fabricante: o prefixo da lista global
+    # desfaz-se em acesso qualificado, e os servicos de sistema voltam a ser a
+    # chamada de biblioteca original. As duas transformacoes estao registradas
+    # no manifesto da importacao.
+    reverse={}
+    for entry in import_manifest.get("globalVars",[]):
+        prefix=entry.get("prefix") or f"{entry['name']}_"
+        for member in entry.get("members",[]):
+            reverse[f"{prefix}{member}"]=f"{entry['name']}.{member}"
+    ordenados=sorted(reverse, key=len, reverse=True)
+    servicos=import_manifest.get("adaptations",{}).get("systemServices",{})
+    desfaz_servico=[]
+    if "SysTimeCore.SysTimeGetUs" in servicos:
+        desfaz_servico.append((re.compile(r"(\w+)\s*:=\s*Sistema_TempoUs\s*;", re.I), r"SysTimeCore.SysTimeGetUs(\1);"))
+    if "GetDateAndTime" in servicos:
+        desfaz_servico.append((re.compile(r"(\w+)\s*:=\s*Sistema_DataHora\s*;", re.I), r"GetDateAndTime(\1);"))
+    if "NextoStandard.GetDayOfWeek" in servicos:
+        desfaz_servico.append((re.compile(r"\bSistema_DiaDaSemana\b", re.I), "NextoStandard.GetDayOfWeek()"))
+
+    def para_o_fabricante(codigo):
+        for padrao, troca in desfaz_servico:
+            codigo=padrao.sub(troca, codigo)
+        for flat in ordenados:
+            codigo=re.sub(rf"(?<![.\w]){re.escape(flat)}(?![\w])", reverse[flat], codigo)
+        return codigo
+
+    generated_bodies={}
+    for item in pous:
+        body=next((x for x in item if x.tag.split("}")[-1]=="body"),None)
+        if body is None: continue
+        texto=next(((x.text or "") for x in body.iter() if x.tag.split("}")[-1]=="xhtml"),"")
+        generated_bodies[item.get("name")]=para_o_fabricante(texto)
+
+    trocados=0
     for original_pou in (item for item in original_root.iter() if item.tag.split("}")[-1]=="pou"):
-        generated=generated_pous.get(original_pou.get("name"))
-        if generated is None: continue
-        for section_name in ("interface","body"):
-            old=next((x for x in original_pou if x.tag.split("}")[-1]==section_name),None)
-            new=next((x for x in generated if x.tag.split("}")[-1]==section_name),None)
-            if old is not None: original_pou.remove(old)
-            if new is not None: original_pou.append(copy.deepcopy(new))
-        # O PLCopen exige ordem fixa nos filhos da POU. Inserir o body no fim da
-        # lista o deixava depois do addData, e o MasterTool respondia "there are
-        # no objects in the export file which can be imported".
-        original_pou[:] = sorted(original_pou, key=lambda item: POU_CHILD_ORDER.index(item.tag.split("}")[-1])
-                                 if item.tag.split("}")[-1] in POU_CHILD_ORDER else len(POU_CHILD_ORDER))
-    generated_types={item.get("name"):item for item in data_types}
-    for original_type in (item for item in original_root.iter() if item.tag.split("}")[-1]=="dataType"):
-        generated=generated_types.get(original_type.get("name"))
-        if generated is None: continue
-        old=next((x for x in original_type if x.tag.split("}")[-1]=="baseType"),None)
-        new=next((x for x in generated if x.tag.split("}")[-1]=="baseType"),None)
-        if old is not None: original_type.remove(old)
-        if new is not None: original_type.insert(0,copy.deepcopy(new))
-    # O projeto guarda as globais numa lista unica, com o nome de cada lista do
-    # fabricante virando prefixo do nome da variavel. O ST exportado usa esses
-    # nomes, entao o XML precisa declarar a mesma lista: redistribuir por GVL
-    # produziria um arquivo onde o codigo diz Field_DI e a GVL diz DI.
-    flat = import_manifest.get("globalsLayout") == "flat"
-    generated_flat=[copy.deepcopy(variable) for node in resource
-                    if node.tag.split("}")[-1]=="globalVars"
-                    for variable in node if variable.tag.split("}")[-1]=="variable"]
-    original_gvls=[item for item in original_root.iter() if item.tag.split("}")[-1]=="globalVars"]
-    if flat and generated_flat and original_gvls:
-        alvo=original_gvls[0]
-        alvo.set("name","GlobalVars")
-        # O CODESYS decide onde colocar cada objeto pelo ProjectStructure, que
-        # casa por ObjectId. A lista consolidada precisa de um id proprio, senao
-        # ela nao existe naquele mapa e o import nao acha onde inseri-la.
-        gvl_id=str(uuid.uuid5(uuid.NAMESPACE_URL, f"plc-codex/globalvars/{export_stem}"))
-        # A lista consolidada nao e mais nenhuma das do fabricante, entao o
-        # objectid dela e novo e o herdado sai junto com o resto do conteudo.
-        alvo[:] = generated_flat
-        objectid=ET.SubElement(ET.SubElement(alvo,q("addData")),q("data"),
-                               {"name":"http://www.3s-software.com/plcopenxml/objectid",
-                                "handleUnknown":"discard"})
-        ET.SubElement(objectid,q("ObjectId")).text=gvl_id
-        for extra in original_gvls[1:]:
-            for pai in original_root.iter():
-                if extra in list(pai):
-                    pai.remove(extra)
-                    break
-        # O mapa herdado ainda aponta para as 25 listas antigas. Troca as
-        # entradas mortas pela lista consolidada e descarta o que nao existe.
-        existentes={node.text for node in original_root.iter() if node.tag.split("}")[-1]=="ObjectId" and node.text}
-        for estrutura in (x for x in original_root.iter() if x.tag.split("}")[-1]=="ProjectStructure"):
-            substituido=False
-            for pai in list(estrutura.iter()):
-                for filho in list(pai):
-                    if filho.tag.split("}")[-1]!="Object": continue
-                    if filho.get("ObjectId") in existentes: continue
-                    if not substituido:
-                        filho.set("Name","GlobalVars"); filho.set("ObjectId",gvl_id); substituido=True
-                    else:
-                        pai.remove(filho)
-    elif original_gvls:
-        generated_globals={item.get("name"):item for item in resource if item.tag.split("}")[-1]=="globalVars"}
-        global_file_to_name={Path(item["file"]).stem:item["name"] for item in import_manifest.get("globalVars",[])}
-        generated_by_original={global_file_to_name.get(stem,stem):node for stem,node in generated_globals.items()}
-        for original_gvl in original_gvls:
-            generated=generated_by_original.get(original_gvl.get("name"))
-            if generated is None: continue
-            preserved=[copy.deepcopy(x) for x in original_gvl if x.tag.split("}")[-1]!="variable"]
-            original_gvl[:] = [copy.deepcopy(x) for x in generated if x.tag.split("}")[-1]=="variable"] + preserved
+        codigo=generated_bodies.get(original_pou.get("name"))
+        if codigo is None: continue
+        body=next((x for x in original_pou if x.tag.split("}")[-1]=="body"),None)
+        if body is None: continue
+        destino=next((x for x in body.iter() if x.tag.split("}")[-1]=="xhtml"),None)
+        if destino is None: continue
+        # Corpo grafico permanece grafico: substituir por ST mudaria a linguagem
+        # da POU, e a conversao para ST existe apenas para o simulador.
+        if next((x for x in body if x.tag.split("}")[-1]!="ST"),None) is not None: continue
+        destino.text=codigo
+        trocados+=1
     tree=original_tree
     xml_path=OUT/f"{export_stem}_PLC_Codex.xml"
 else:
