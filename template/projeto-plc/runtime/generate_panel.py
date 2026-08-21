@@ -9,6 +9,7 @@ de IHM e estado. Serve de ponto de partida; o ajuste fino continua manual.
 from pathlib import Path
 import json
 import re
+import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOGO = ROOT / ".plcsim" / "build" / "variables.json"
@@ -53,6 +54,33 @@ def por_prefixo(prefixo, tipo, io, limite=None):
     return [item(t, rotulo_de(t), tipo, ioType=io) for t in escolhidos]
 
 
+def ja_configurado(caminho, chave):
+    """Configuracao valida e a que aponta para tags deste projeto.
+
+    A tela do template vem preenchida com o compressor de exemplo. Checar
+    apenas se o arquivo tem itens faria o gerador pular exatamente o caso em
+    que ele e necessario, deixando a tela cheia de tag inexistente.
+    """
+    if not caminho.is_file():
+        return False
+    try:
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+    except ValueError:
+        return False
+    if chave == "areas":
+        tags = [i.get("tag") for area in dados.get("areas", {}).values() for i in area]
+    else:
+        tags = [i.get("tag") for i in dados.get("items", [])]
+    return bool(tags) and any(tag in variaveis for tag in tags)
+
+
+forcar = "--force" in sys.argv
+gerar_painel = forcar or not ja_configurado(PAINEL, "areas")
+gerar_pid = forcar or not ja_configurado(PID, "items")
+if not gerar_painel and not gerar_pid:
+    print("Telas ja apontam para tags deste projeto; nada a gerar.")
+    raise SystemExit(0)
+
 ESTADOS = {"0": "S0 · Desligado", "1": "S1 · Parada segura", "10": "S10 · Ligando auxiliares",
            "11": "S11 · Manutencao", "20": "S20 · Alivio", "30": "S30 · Carga", "40": "S40 · Alivio manual"}
 
@@ -84,11 +112,12 @@ field += [item(f"Field_Transmissor[{i}].engValue", f"Transmissor {i}", "number",
           for i in range(0, 8) if f"Field_Transmissor[{i}].engValue" in variaveis]
 
 nome = ROOT.name
-PAINEL.write_text(json.dumps({
+if gerar_painel:
+    PAINEL.write_text(json.dumps({
     "version": 1, "title": f"{nome} · bancada",
     "display": {"realPrecision": 2, "theme": "light"},
     "areas": {"monitoring": monitoring, "ihm": ihm, "panel": painel, "interface": interface, "field": field},
-}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 posicoes = [(8, 12), (8, 30), (8, 72), (21, 30), (21, 78), (43, 12), (43, 82), (57, 22), (57, 82),
             (67, 12), (67, 82), (79, 8), (92, 20), (92, 33), (92, 66), (92, 79)]
@@ -105,10 +134,11 @@ for (x, y), tag in zip(posicoes, candidatos):
 animacao = {chave: tag for chave, tag in (("motor", "Saida_LIGA_MOTOR_PRINCIPAL"),
                                           ("valve", "Saida_COMANDO_VALVULA_SUCCAO"),
                                           ("exhaust", "Saida_LIGA_EXAUSTOR")) if tag in variaveis}
-PID.write_text(json.dumps({
-    "version": 1, "title": f"{nome} · P&ID",
-    "display": {"realPrecision": 2, "theme": "light"},
-    "items": itens, "animation": animacao,
-}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+if gerar_pid:
+    PID.write_text(json.dumps({
+        "version": 1, "title": f"{nome} · P&ID",
+        "display": {"realPrecision": 2, "theme": "light"},
+        "items": itens, "animation": animacao,
+    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 total = sum(len(v) for v in json.loads(PAINEL.read_text(encoding="utf-8"))["areas"].values())
-print(f"Telas iniciais: {total} itens no painel e {len(itens)} no P&ID.")
+print(f"Telas iniciais: {total} itens no painel e {len(itens) if gerar_pid else 0} no P&ID.")

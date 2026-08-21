@@ -42,8 +42,7 @@ PLC_CODEX_SOURCE_ROOT="$GENERATED" python3 "$ROOT/runtime/generate_variable_cata
 g++ -std=c++17 -O0 -w -fpermissive -o "$BUILD/plc-runtime" \
   "$ROOT/runtime/main.cpp" "$BUILD/out/project.cpp" \
   -I"$BUILD" -I"$BUILD/out" -I"$STRUCPP_ROOT/runtime/include" -lpthread -lm
-# Telas iniciais so na primeira vez; depois o ajuste do usuario prevalece.
-if [ ! -s "$ROOT/panel/painel.json" ] || ! grep -q '"tag"' "$ROOT/panel/painel.json"; then
-  python3 "$ROOT/runtime/generate_panel.py"
-fi
+# O proprio gerador decide: so escreve se a tela atual nao aponta para tags
+# deste projeto. Assim o ajuste do usuario nunca e sobrescrito.
+python3 "$ROOT/runtime/generate_panel.py"
 echo "BUILD OK: $BUILD/plc-runtime"
