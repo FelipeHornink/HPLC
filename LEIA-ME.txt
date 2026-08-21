@@ -1,0 +1,31 @@
+PLC CODEX — EXTENSAO VS CODE 0.25.0
+
+Conteudo deste pacote:
+
+  extension.js            bundle da extensao
+  package.json            comandos, views e menus
+  template/projeto-plc/   projeto modelo, com runtime/ completo
+  docs/                   avaliacao do compilador e receita de export
+  dist/*.vsix             pacote pronto para instalar
+  empacotar.sh            reempacota e instala
+  .git/                   historico completo das alteracoes
+
+INSTALAR
+
+  code --install-extension dist/plc-codex-0.25.0.vsix --force
+
+  Depois, no VS Code: Developer: Reload Window
+
+REQUISITOS DO SIMULADOR
+
+  Python 3, g++ e o compilador STruC++ em ~/.local/strucpp
+  O STruC++ vem de https://github.com/Autonomy-Logic/STruCpp/releases
+  (GPL-3 com excecao de runtime; nao vai neste pacote)
+
+  O MATIEC nao e mais usado.
+
+ONDE COMECAR
+
+  docs/EXPORT-PARA-OUTROS-CPS.md   como levar a logica para outro CP
+  docs/AVALIACAO-STRUCPP.md        por que trocamos de compilador
+  git log                          o caminho de cada decisao
