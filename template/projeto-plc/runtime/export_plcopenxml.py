@@ -24,6 +24,9 @@ if manifest_source.exists():
         pass
 export_stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", source_name)
 
+# Ordem dos filhos de <pou> exigida pelo esquema PLCopen TC6.
+POU_CHILD_ORDER = ["interface", "actions", "transitions", "body", "documentation", "addData"]
+
 def q(name): return f"{{{PLC}}}{name}"
 def files(folder): return sorted((ROOT / folder).glob("*.st")) if (ROOT / folder).exists() else []
 
@@ -137,7 +140,12 @@ if original_path.exists() and manifest_path.exists():
             old=next((x for x in original_pou if x.tag.split("}")[-1]==section_name),None)
             new=next((x for x in generated if x.tag.split("}")[-1]==section_name),None)
             if old is not None: original_pou.remove(old)
-            if new is not None: original_pou.insert(0 if section_name=="interface" else len(original_pou),copy.deepcopy(new))
+            if new is not None: original_pou.append(copy.deepcopy(new))
+        # O PLCopen exige ordem fixa nos filhos da POU. Inserir o body no fim da
+        # lista o deixava depois do addData, e o MasterTool respondia "there are
+        # no objects in the export file which can be imported".
+        original_pou[:] = sorted(original_pou, key=lambda item: POU_CHILD_ORDER.index(item.tag.split("}")[-1])
+                                 if item.tag.split("}")[-1] in POU_CHILD_ORDER else len(POU_CHILD_ORDER))
     generated_types={item.get("name"):item for item in data_types}
     for original_type in (item for item in original_root.iter() if item.tag.split("}")[-1]=="dataType"):
         generated=generated_types.get(original_type.get("name"))
@@ -181,6 +189,17 @@ else:
     tree=ET.ElementTree(root)
     xml_path=OUT/f"{export_stem}_PLC_Codex.xml"
 ET.indent(tree,space="  "); tree.write(xml_path,encoding="utf-8",xml_declaration=True)
+
+# O ElementTree serializa o corpo ST como <html:xhtml>, com o prefixo declarado
+# na raiz. E XML equivalente, mas o MasterTool e o CODESYS esperam a forma que
+# eles mesmos escrevem, <xhtml xmlns="...">, e ignoram o corpo caso contrario.
+texto = xml_path.read_text(encoding="utf-8")
+texto = re.sub(r"<html:xhtml(\s*/?)>",
+               lambda m: f'<xhtml xmlns="{XHTML}"{m.group(1) or ""}>', texto)
+texto = texto.replace("</html:xhtml>", "</xhtml>")
+if "html:" not in texto:
+    texto = texto.replace(f' xmlns:html="{XHTML}"', "")
+xml_path.write_text(texto, encoding="utf-8")
 
 ordered=[]
 for folder in ("types","functions","blocks","globals","programs"):
