@@ -96,7 +96,7 @@ def add_variable(parent, item):
 
 root=ET.Element(q("project"))
 ET.SubElement(root,q("fileHeader"),{"companyName":"PLC Codex","productName":"PLC Codex Simulator","productVersion":"0.1","creationDateTime":dt.datetime.now(dt.timezone.utc).isoformat()})
-header=ET.SubElement(root,q("contentHeader"),{"name":f"{export_stem}_PLC_Codex","modificationDateTime":dt.datetime.now(dt.timezone.utc).isoformat()})
+header=ET.SubElement(root,q("contentHeader"),{"name":f"{export_stem}_Completo","modificationDateTime":dt.datetime.now(dt.timezone.utc).isoformat()})
 coord=ET.SubElement(header,q("coordinateInfo"))
 for lang in ("fbd","ld","sfc"):
     ET.SubElement(ET.SubElement(coord,q(lang)),q("scaling"),{"x":"1","y":"1"})
@@ -214,10 +214,10 @@ if original_path.exists() and manifest_path.exists():
         destino.text=codigo
         trocados+=1
     tree=original_tree
-    xml_path=OUT/f"{export_stem}_PLC_Codex.xml"
+    xml_path=OUT/f"{export_stem}_Completo.xml"
 else:
     tree=ET.ElementTree(root)
-    xml_path=OUT/f"{export_stem}_PLC_Codex.xml"
+    xml_path=OUT/f"{export_stem}_Completo.xml"
 ET.indent(tree,space="  "); tree.write(xml_path,encoding="utf-8",xml_declaration=True)
 
 # O ElementTree serializa o corpo ST como <html:xhtml>, com o prefixo declarado
@@ -228,97 +228,27 @@ xml_path.write_text(normalizar(xml_path.read_text(encoding="utf-8")), encoding="
 ordered=[]
 for folder in ("types","functions","blocks","globals","programs"):
     for source in files(folder): ordered.append(f"(* ===== {folder}/{source.name} ===== *)\n{source_text(source).strip()}\n")
-bundle=OUT/f"{export_stem}_Completo.st"; bundle.write_text("\n".join(ordered),encoding="utf-8")
+bundle=OUT/f"{export_stem}_ST.st"; bundle.write_text("\n".join(ordered),encoding="utf-8")
 for aviso in correcoes:
     print(f"Correcao: {aviso}")
-# Perfil portatil: a aplicacao vale em qualquer fabricante, a descricao de
-# hardware nao. Os blocos <data name="Device"> embutem um dump proprietario dos
-# modulos Nexto e, apesar de marcados handleUnknown="discard", o importador do
-# CODESYS 3.5.22 tenta interpreta-los e aborta com erro generico de documento
-# XML antes de processar qualquer POU. Sao 92% do tamanho do arquivo.
-if original_path.exists():
-    portatil=ET.parse(xml_path)
-    raiz=portatil.getroot()
-    removidos=0
-    for pai in list(raiz.iter()):
-        for filho in list(pai):
-            if filho.tag.split("}")[-1]=="data" and filho.get("name")=="Device":
-                pai.remove(filho); removidos+=1
-    # addData que ficou sem conteudo, e configuracao de modulo que so existia
-    # para carregar esse dump, saem tambem.
-    vazios=0
-    for _ in range(3):
-        for pai in list(raiz.iter()):
-            for filho in list(pai):
-                nome=filho.tag.split("}")[-1]
-                if nome=="addData" and len(filho)==0:
-                    pai.remove(filho); vazios+=1
-                elif nome=="configuration" and filho.get("name")!="Device" and len(filho)==0:
-                    pai.remove(filho); vazios+=1
-    destino=OUT/f"{export_stem}_Aplicacao.xml"
-    ET.indent(portatil,space="  "); portatil.write(destino,encoding="utf-8",xml_declaration=True)
-    texto=destino.read_text(encoding="utf-8")
-    texto=normalizar(texto)
-    destino.write_text(texto, encoding="utf-8")
-    print(f"Portatil: {destino}")
-    print(f"   {removidos} dumps de hardware e {vazios} nos vazios removidos; "
-          f"{destino.stat().st_size // 1024} KB contra {xml_path.stat().st_size // 1024} KB")
-
-# Perfil neutro: para levar a logica a um projeto que nao e o de origem.
+# Arquivo da aplicacao: so a logica, na forma que a norma TC6 descreve, sem
+# nenhuma extensao de fabricante. E o que se leva para qualquer software.
 #
-# MasterTool e CODESYS nao usam types/pous; ambos guardam POU e DUT dentro da
-# extensao http://www.3s-software.com/plcopenxml/pou, e amarram cada objeto ao
-# GUID do pai pelo ProjectStructure. Importar num projeto diferente falha porque
-# o Application de destino tem outro GUID: o objeto nao tem onde se encaixar, e
-# a lista de itens insereveis sai vazia mesmo com o alvo certo selecionado.
-#
-# Sem ProjectStructure e sem ObjectId nao ha vinculo a resolver, e o importador
-# insere no no selecionado. A descricao de hardware sai junto, porque descreve
-# um CP que o destino nao tem.
+# Nem o MasterTool nem o CODESYS escrevem assim: os dois deixam types/pous vazio,
+# guardam POU e DUT dentro de addData proprietario e amarram cada objeto ao GUID
+# do pai pelo ProjectStructure. Isso faz o arquivo deles servir de round-trip do
+# proprio projeto, nao de intercambio. Aqui o arquivo e montado do zero.
 if original_path.exists():
-    neutro=ET.parse(xml_path)
-    raiz=neutro.getroot()
-    contagem={"Device":0,"ObjectId":0,"ProjectStructure":0,"configuration":0}
-    for _ in range(4):
-        for pai in list(raiz.iter()):
-            for filho in list(pai):
-                nome=filho.tag.split("}")[-1]
-                alvo=filho.get("name") or ""
-                if nome=="data" and alvo=="Device":
-                    pai.remove(filho); contagem["Device"]+=1
-                elif nome=="data" and alvo.endswith("/objectid"):
-                    pai.remove(filho); contagem["ObjectId"]+=1
-                elif nome=="data" and alvo.endswith("/projectstructure"):
-                    pai.remove(filho); contagem["ProjectStructure"]+=1
-                elif nome=="configuration" and filho.get("name")!="Device":
-                    pai.remove(filho); contagem["configuration"]+=1
-                elif nome=="addData" and len(filho)==0:
-                    pai.remove(filho)
-    destino=OUT/f"{export_stem}_Neutro.xml"
-    ET.indent(neutro,space="  "); neutro.write(destino,encoding="utf-8",xml_declaration=True)
-    texto=destino.read_text(encoding="utf-8")
-    texto=normalizar(texto)
-    destino.write_text(texto, encoding="utf-8")
-    print(f"Neutro: {destino}")
-    print("   removidos: " + ", ".join(f"{v} {k}" for k, v in contagem.items() if v)
-          + f"; {destino.stat().st_size // 1024} KB")
-
-# Perfil padrao: PLCopenXML como a norma TC6 descreve, sem nenhuma extensao de
-# fabricante. Nem o MasterTool nem o CODESYS escrevem assim — os dois deixam
-# types/pous vazio e guardam tudo em addData — mas e a forma que um importador
-# aderente ao padrao aberto deve ler, e a unica configuracao ainda nao testada.
-if original_path.exists():
-    padrao=ET.Element(q("project"))
-    ET.SubElement(padrao,q("fileHeader"),{
+    aplicacao=ET.Element(q("project"))
+    agora=dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    ET.SubElement(aplicacao,q("fileHeader"),{
         "companyName":"PLC Codex","productName":"PLC Codex","productVersion":"1.0",
-        "creationDateTime":dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()})
-    cabecalho=ET.SubElement(padrao,q("contentHeader"),{
-        "name":export_stem,
-        "modificationDateTime":dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()})
+        "creationDateTime":agora})
+    cabecalho=ET.SubElement(aplicacao,q("contentHeader"),{"name":export_stem,"modificationDateTime":agora})
     coordenadas=ET.SubElement(cabecalho,q("coordinateInfo"))
     for lingua in ("fbd","ld","sfc"):
         ET.SubElement(ET.SubElement(coordenadas,q(lingua)),q("scaling"),{"x":"1","y":"1"})
-    tipos=ET.SubElement(padrao,q("types"))
+    tipos=ET.SubElement(aplicacao,q("types"))
     destino_dt=ET.SubElement(tipos,q("dataTypes"))
     destino_pou=ET.SubElement(tipos,q("pous"))
 
@@ -335,8 +265,7 @@ if original_path.exists():
         destino_dt.append(sem_extensao(item))
     for item in (x for x in original_root.iter() if x.tag.split("}")[-1]=="pou"):
         destino_pou.append(sem_extensao(item))
-
-    instancias=ET.SubElement(padrao,q("instances"))
+    instancias=ET.SubElement(aplicacao,q("instances"))
     configuracoes=ET.SubElement(instancias,q("configurations"))
     configuracao=ET.SubElement(configuracoes,q("configuration"),{"name":"Config"})
     recurso=ET.SubElement(configuracao,q("resource"),{"name":"Application"})
@@ -345,16 +274,14 @@ if original_path.exists():
     for tarefa in (x for x in original_root.iter() if x.tag.split("}")[-1]=="task"):
         recurso.append(sem_extensao(tarefa))
 
-    destino=OUT/f"{export_stem}_Padrao.xml"
-    arvore=ET.ElementTree(padrao)
+    destino=OUT/f"{export_stem}_Aplicacao.xml"
+    arvore=ET.ElementTree(aplicacao)
     ET.indent(arvore,space="  "); arvore.write(destino,encoding="utf-8",xml_declaration=True)
-    texto=destino.read_text(encoding="utf-8")
-    texto=normalizar(texto)
-    destino.write_text(texto, encoding="utf-8")
-    print(f"Padrao TC6: {destino}")
-    print(f"   {len(destino_pou)} POUs e {len(destino_dt)} DUTs em types/, "
+    destino.write_text(normalizar(destino.read_text(encoding="utf-8")), encoding="utf-8")
+    print(f"Aplicacao: {destino}")
+    print(f"   {len(destino_pou)} POUs, {len(destino_dt)} DUTs e "
           f"{len([x for x in recurso if x.tag.split('}')[-1]=='globalVars'])} GVLs, "
           f"sem extensao de fabricante; {destino.stat().st_size // 1024} KB")
 
-print(f"PLCopenXML: {xml_path}")
+print(f"Completo: {xml_path}")
 print(f"ST consolidado: {bundle}")

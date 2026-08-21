@@ -7,7 +7,7 @@ python3 "$ROOT/runtime/export_plcopenxml.py"
 # aqui evita descobrir um XML recusado pelo fabricante so na tela dele.
 ORIGINAL="$ROOT/plcopen/original.xml"
 if [ -f "$ORIGINAL" ]; then
-  GERADO="$(ls "$ROOT"/export/*_PLC_Codex.xml 2>/dev/null | head -1)"
+  GERADO="$(ls "$ROOT"/export/*_Completo.xml 2>/dev/null | head -1)"
   if [ -n "$GERADO" ]; then
     python3 "$ROOT/runtime/verify_export.py" "$ORIGINAL" "$GERADO"
   fi
