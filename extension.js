@@ -1804,12 +1804,30 @@ async function activate(context) {
       if (!fs.existsSync(path.join(project, '.plcsim', 'build', 'variables.json'))) {
         vscode.window.showWarningMessage('Execute Build ou Play uma vez para gerar o catálogo completo de variáveis.');
       }
+      // O editor de verdade agora vive na propria pagina servida pelo runtime:
+      // paleta de blocos, arraste, fundo PNG e Salvar, gravando o JSON pelo
+      // endpoint local. O webview daqui fica como reserva para quando o runtime
+      // nao sobe (sem toolchain, por exemplo).
+      await vscode.commands.executeCommand('plcCodex.openPanel');
+      if (hasLivePid(project)) {
+        vscode.window.showInformationMessage('Editar tela: use o botão "Editar tela" na página de Comandos.');
+        return;
+      }
       await openMappingEditor(project);
     }),
     vscode.commands.registerCommand('plcCodex.editPid', async item => {
       const project = (typeof item === 'string' ? item : item?.project) || await requireProject(context);
       if (!project) return;
       if (!fs.existsSync(path.join(project, '.plcsim', 'build', 'variables.json'))) vscode.window.showWarningMessage('Execute Build ou Play uma vez para gerar o catálogo completo de variáveis.');
+      // O editor de verdade agora vive na propria pagina servida pelo runtime:
+      // paleta de blocos, arraste, fundo PNG e Salvar, gravando o JSON pelo
+      // endpoint local. O webview daqui fica como reserva para quando o runtime
+      // nao sobe (sem toolchain, por exemplo).
+      await vscode.commands.executeCommand('plcCodex.openPid');
+      if (hasLivePid(project)) {
+        vscode.window.showInformationMessage('Editor do P&ID: use o botão "Editar" na própria página — blocos, arraste, fundo PNG e Salvar.');
+        return;
+      }
       await openPidEditor(project);
     }),
     vscode.commands.registerCommand('plcCodex.runScenarios', async item => {
