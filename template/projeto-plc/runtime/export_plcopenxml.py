@@ -112,10 +112,52 @@ for source in files("types"):
         base=ET.SubElement(dtype,q("baseType")); struct=ET.SubElement(base,q("struct"))
         for item in declarations(match.group(2)): add_variable(struct,item)
 
+# POU costuma comecar com comentario de cabecalho, e o re.match e ancorado no
+# inicio do texto: a declaracao nao era encontrada, add_pou saia calado e a POU
+# desaparecia do XML sem erro nenhum. Procurar com re.search nao serve, porque o
+# proprio comentario cita "PROGRAM Main". Entao o cabecalho e separado antes.
+def fim_do_comentario(texto):
+    """Indice depois do *) que fecha o comentario aberto em 0, ou -1.
+
+    A norma permite comentario aninhado desde a 3a edicao, e o cabecalho do Main
+    cita "(* @ROUTINE *)" dentro do proprio comentario. Fechar no primeiro *)
+    deixaria o resto do cabecalho passando por codigo.
+    """
+    profundidade=0; i=0
+    while i < len(texto)-1:
+        if texto[i:i+2]=="(*": profundidade+=1; i+=2; continue
+        if texto[i:i+2]=="*)":
+            profundidade-=1; i+=2
+            if profundidade==0: return i
+            continue
+        i+=1
+    return -1
+
+
+def separa_prefacio(text):
+    while True:
+        resto=text.lstrip()
+        if resto.startswith("(*"):
+            fim=fim_do_comentario(resto)
+            if fim<0: return resto
+            text=resto[fim:]
+        elif resto.startswith("//"):
+            quebra=resto.find("\n")
+            if quebra<0: return ""
+            text=resto[quebra+1:]
+        else:
+            return resto
+
+
+sem_declaracao=[]
+
+
 def add_pou(source):
-    text=source_text(source).strip()
+    text=separa_prefacio(source_text(source).strip())
     head=re.match(r"(PROGRAM|FUNCTION_BLOCK|FUNCTION)\s+(\w+)(?:\s*:\s*(\w+))?",text,re.I)
-    if not head: return
+    if not head:
+        sem_declaracao.append(source)
+        return
     kind,name,return_type=head.groups(); kind=kind.upper()
     pou_type={"PROGRAM":"program","FUNCTION_BLOCK":"functionBlock","FUNCTION":"function"}[kind]
     pou=ET.SubElement(pous,q("pou"),{"name":name,"pouType":pou_type}); interface=ET.SubElement(pou,q("interface"))
@@ -134,6 +176,11 @@ def add_pou(source):
 
 for folder in ("functions","blocks","programs"):
     for source in files(folder): add_pou(source)
+# Exportar um XML sem a POU e pior do que falhar: o arquivo abre no software de
+# destino e parece completo.
+if sem_declaracao:
+    raise SystemExit("Sem PROGRAM/FUNCTION_BLOCK/FUNCTION reconhecido em:\n  "
+                     + "\n  ".join(str(x.relative_to(ROOT)) for x in sem_declaracao))
 
 instances=ET.SubElement(root,q("instances")); configurations=ET.SubElement(instances,q("configurations")); config=ET.SubElement(configurations,q("configuration"),{"name":"Config0"}); resource=ET.SubElement(config,q("resource"),{"name":"Application"})
 for source in files("globals"):
@@ -145,7 +192,19 @@ for source in files("globals"):
 task=ET.SubElement(resource,q("task"),{"name":"MainTask","interval":"PT0.01S","priority":"10"})
 ET.SubElement(task,q("pouInstance"),{"name":"MainInstance","typeName":"Main"})
 
+def corpo_st(item):
+    body=next((x for x in item if x.tag.split("}")[-1]=="body"),None)
+    if body is None: return None
+    return next(((x.text or "") for x in body.iter() if x.tag.split("}")[-1]=="xhtml"),"")
+
+
 original_path=ROOT/"plcopen"/"original.xml"
+# Projeto que nao veio de importacao nao passa pelo ramo abaixo, mas o relatorio
+# de correcoes e os arquivos por rotina sao gerados sempre. Sem XML original nao
+# ha nomenclatura de fabricante para desfazer: o corpo e o proprio ST do projeto.
+correcoes=[]
+generated_bodies={item.get("name"):corpo for item in pous
+                  if (corpo:=corpo_st(item)) is not None}
 manifest_path=ROOT/"plcopen"/"manifest.json"
 if original_path.exists() and manifest_path.exists():
     original_tree=ET.parse(original_path); original_root=original_tree.getroot()
@@ -181,19 +240,13 @@ if original_path.exists() and manifest_path.exists():
             codigo=re.sub(rf"(?<![.\w]){re.escape(flat)}(?![\w])", reverse[flat], codigo)
         return codigo
 
-    generated_bodies={}
-    for item in pous:
-        body=next((x for x in item if x.tag.split("}")[-1]=="body"),None)
-        if body is None: continue
-        texto=next(((x.text or "") for x in body.iter() if x.tag.split("}")[-1]=="xhtml"),"")
-        generated_bodies[item.get("name")]=para_o_fabricante(texto)
+    generated_bodies={nome:para_o_fabricante(corpo) for nome,corpo in generated_bodies.items()}
 
     # O MasterTool 3.76 exporta <pouInstance typeName=""> vazio, e o esquema TC6
     # exige o tipo. Sem ele o importador nao vincula a tarefa ao programa. Quando
     # existe uma POU com o mesmo nome da instancia, o vinculo e obvio e a
     # correcao fica registrada em correcoes_aplicadas.
     nomes_pou={item.get("name") for item in original_root.iter() if item.tag.split("}")[-1]=="pou"}
-    correcoes=[]
     for instancia in (x for x in original_root.iter() if x.tag.split("}")[-1]=="pouInstance"):
         if instancia.get("typeName"): continue
         nome=instancia.get("name") or ""
