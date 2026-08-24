@@ -86,9 +86,55 @@ for body in global_bodies:
             data_type = match.group(2).split(":=", 1)[0].strip()
             declarations.append((match.group(1), data_type))
 
-external_lines = ["VAR_EXTERNAL", *(
-    f"    {name} : {data_type};" for name, data_type in declarations
-), "END_VAR"]
+POU_HEADER = re.compile(r"^\s*(?:PROGRAM|FUNCTION_BLOCK|FUNCTION)\b", re.I)
+POU_FOOTER = re.compile(r"^\s*END_(?:PROGRAM|FUNCTION_BLOCK|FUNCTION)\b", re.I)
+DECL_HEADER = re.compile(r"^\s*VAR(?:_INPUT|_OUTPUT|_IN_OUT|_TEMP|_STAT|_EXTERNAL|_GLOBAL)?\b", re.I)
+DECL_FOOTER = re.compile(r"^\s*END_VAR\b", re.I)
+
+
+# Nomes que a POU que vai receber o VAR_EXTERNAL declara por conta propria.
+# Vale so a primeira POU do arquivo, que e onde a injecao acontece; POU seguinte
+# do mesmo arquivo nao pode restringir o que a primeira enxerga.
+def declared_locally(source_lines):
+    names = set()
+    inside_pou = False
+    inside_block = False
+    for line in source_lines:
+        clean = re.sub(r"\(\*.*?\*\)", "", line).strip()
+        if POU_FOOTER.match(clean):
+            break
+        if POU_HEADER.match(clean):
+            if inside_pou:
+                break
+            inside_pou = True
+            continue
+        if not inside_pou:
+            continue
+        if DECL_FOOTER.match(clean):
+            inside_block = False
+            continue
+        if DECL_HEADER.match(clean):
+            inside_block = True
+            continue
+        if not inside_block:
+            continue
+        match = re.match(r"([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:\s*[^=]", clean)
+        if match:
+            names.update(part.strip().lower() for part in match.group(1).split(","))
+    return names
+
+
+# A norma proibe o mesmo identificador duas vezes no escopo da POU, e o STruC++
+# aborta a compilacao. Quando a POU declara o nome, e a declaracao local que vale
+# no corpo, por isso a global homonima sai do VAR_EXTERNAL em vez de renomear
+# qualquer um dos dois lados.
+def external_block(skip=frozenset()):
+    kept = [item for item in declarations if item[0].lower() not in skip]
+    if not kept:
+        return []
+    return ["VAR_EXTERNAL", *(
+        f"    {name} : {data_type};" for name, data_type in kept
+    ), "END_VAR"]
 
 unit_lines = []
 line_map = {}
@@ -105,11 +151,9 @@ def append(line="", source=None, source_line=None, kind=None):
         }
 
 
-POU_HEADER = re.compile(r"^\s*(?:PROGRAM|FUNCTION_BLOCK|FUNCTION)\b", re.I)
-
-
 def append_source(source, kind, inject_external=False):
     source_lines = source.read_text(encoding="utf-8").splitlines()
+    external_lines = external_block(declared_locally(source_lines)) if inject_external else []
     injected = False
     for number, line in enumerate(source_lines, 1):
         routine_match = re.match(r"^\s*\(\*\s*@ROUTINE\s+([^*]+?)\s*\*\)\s*$", line)
