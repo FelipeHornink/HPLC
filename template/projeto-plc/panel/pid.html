@@ -4,33 +4,69 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PLC Codex — P&amp;ID</title>
 <style>
-:root{color-scheme:light;font-family:"Segoe UI",Arial,sans-serif;--bg:#e9edf0;--surface:#fff;--canvas:#f7f8f8;--header:#29343b;--headerText:#f5f7f8;--line:#aeb8be;--pipe:#68777f;--flow:#477c98;--ok:#4d7558;--danger:#914949;--text:#20272c;--muted:#65727a;--equipment:#dfe5e8;--symbol:#f8f9f9;--shadow:0 1px 3px #0002}[data-theme=dark]{color-scheme:dark;--bg:#1d2226;--surface:#282e32;--canvas:#22282c;--header:#151a1d;--headerText:#eef1f2;--line:#66737a;--pipe:#76858d;--flow:#86aebe;--ok:#789b81;--danger:#bd8585;--text:#e3e7e9;--muted:#a5afb4;--equipment:#343d42;--symbol:#252b2f;--shadow:none}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}header{height:48px;display:flex;align-items:center;gap:8px;padding:0 14px;background:var(--header);color:var(--headerText);border-bottom:1px solid #1118}h1{font-size:14px;margin:0;flex:1}.header-button{border:1px solid #ffffff38;border-radius:3px;padding:6px 9px;background:#ffffff12;color:var(--headerText);cursor:pointer}.header-button:hover{background:#ffffff20}.status{font-size:10px;font-weight:700;color:#f0c2c2}.status.online{color:#d5e7da}.legend{font-size:10px;color:#cbd3d7}main{padding:10px}.process{position:relative;width:100%;height:calc(100vh - 68px);min-height:530px;overflow:hidden;border:1px solid var(--line);border-radius:4px;background-color:var(--canvas);background-position:center;background-repeat:no-repeat;background-size:contain;box-shadow:var(--shadow)}svg{position:absolute;inset:0;width:100%;height:100%}.process.has-background svg{opacity:.16}.pipe{fill:none;stroke:var(--pipe);stroke-width:13;stroke-linecap:round}.flow{fill:none;stroke:var(--flow);stroke-width:4;stroke-dasharray:11 15;opacity:.12}.process.running .flow{opacity:.8;animation:flow .65s linear infinite}@keyframes flow{to{stroke-dashoffset:-26}}.equipment{fill:var(--equipment);stroke:var(--line);stroke-width:3}.equipment.on,.symbol.on{fill:#b9cdbf;stroke:var(--ok)}[data-theme=dark] .equipment.on,[data-theme=dark] .symbol.on{fill:#3b5141}.symbol{fill:var(--symbol);stroke:var(--line);stroke-width:3}.tag{position:absolute;transform:translate(-50%,-50%);width:150px;min-height:54px;padding:6px 8px;border:1px solid var(--line);border-radius:3px;background:color-mix(in srgb,var(--surface) 96%,transparent);box-shadow:var(--shadow)}.tag.bool{border-left:5px solid var(--danger)}.tag.bool.on{border-left-color:var(--ok)}.label{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.value{font:700 16px ui-monospace,monospace;margin-top:4px;color:var(--text)}.path{font:8px ui-monospace,monospace;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.missing{border-color:var(--danger);color:var(--danger)}.footer{position:absolute;left:12px;bottom:10px;font-size:9px;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:4px 7px;border-radius:3px}@media(max-width:800px){.tag{width:125px}.label{font-size:9px}.value{font-size:13px}.legend{display:none}}
+:root{color-scheme:light;font-family:"Segoe UI",Arial,sans-serif;--bg:#e9edf0;--surface:#fff;--canvas:#f7f8f8;--header:#29343b;--headerText:#f5f7f8;--line:#aeb8be;--pipe:#68777f;--ok:#4d7558;--danger:#914949;--text:#20272c;--muted:#65727a;--equipment:#dfe5e8;--symbol:#f8f9f9;--shadow:0 1px 3px #0002}[data-theme=dark]{color-scheme:dark;--bg:#1d2226;--surface:#282e32;--canvas:#22282c;--header:#151a1d;--headerText:#eef1f2;--line:#66737a;--pipe:#76858d;--ok:#789b81;--danger:#bd8585;--text:#e3e7e9;--muted:#a5afb4;--equipment:#343d42;--symbol:#252b2f;--shadow:none}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}header{height:48px;display:flex;align-items:center;gap:8px;padding:0 14px;background:var(--header);color:var(--headerText);border-bottom:1px solid #1118}h1{font-size:14px;margin:0;flex:1}.header-button{border:1px solid #ffffff38;border-radius:3px;padding:6px 9px;background:#ffffff12;color:var(--headerText);cursor:pointer}.header-button:hover{background:#ffffff20}.status{font-size:10px;font-weight:700;color:#f0c2c2}.status.online{color:#d5e7da}.legend{font-size:10px;color:#cbd3d7}main{padding:10px}.process{position:relative;width:100%;height:calc(100vh - 68px);min-height:530px;overflow:hidden;border:1px solid var(--line);border-radius:4px;background-color:var(--canvas);background-position:center;background-repeat:no-repeat;background-size:contain;box-shadow:var(--shadow)}
+svg.shapes{position:absolute;inset:0;width:100%;height:100%}
+.process.has-background svg.shapes{opacity:.55}
+.pidshape{fill:var(--equipment);stroke:var(--line);stroke-width:.6}
+.pidshape.on{fill:#b9cdbf;stroke:var(--ok)}
+[data-theme=dark] .pidshape.on{fill:#3b5141}
+.pidshape.pipe{fill:var(--pipe);stroke:none}
+.pidshape.pipe.on{fill:var(--pipe)}
+.pidshape-text{font:2.6px ui-monospace,monospace;fill:var(--text);pointer-events:none}
+.pidshape-mark{fill:var(--text);opacity:.6;pointer-events:none}
+.pidshape-label{font:2.8px "Segoe UI",Arial,sans-serif;fill:var(--muted)}
+.tag{position:absolute;transform:translate(-50%,-50%);width:150px;min-height:54px;padding:6px 8px;border:1px solid var(--line);border-radius:3px;background:color-mix(in srgb,var(--surface) 96%,transparent);box-shadow:var(--shadow)}.tag.bool{border-left:5px solid var(--danger)}.tag.bool.on{border-left-color:var(--ok)}.label{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.value{font:700 16px ui-monospace,monospace;margin-top:4px;color:var(--text)}.path{font:8px ui-monospace,monospace;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.missing{border-color:var(--danger);color:var(--danger)}.footer{position:absolute;left:12px;bottom:10px;font-size:9px;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:4px 7px;border-radius:3px}@media(max-width:800px){.tag{width:125px}.label{font-size:9px}.value{font-size:13px}.legend{display:none}}
 </style>
 </head>
 <body>
-<header><h1 id="title">P&amp;ID · PROCESSO</h1><span class="legend">Verde: ativo · Vermelho: inativo</span><span id="status" class="status">● DESCONECTADO</span><button id="commandsButton" class="header-button">Abrir Comandos</button><button id="themeButton" class="header-button">Tema escuro</button></header>
+<header><h1 id="title">P&amp;ID · PROCESSO</h1><span class="legend">Verde: ligado/aberto</span><span id="status" class="status">● DESCONECTADO</span><button id="commandsButton" class="header-button">Abrir Comandos</button><button id="themeButton" class="header-button">Tema escuro</button></header>
 <main><section id="process" class="process">
-<svg viewBox="0 0 1200 620" preserveAspectRatio="none" aria-label="Fluxo simplificado do compressor">
-  <path class="pipe" d="M35 330 H210 M290 330 H430 M610 330 H760 M850 330 H1160"/>
-  <path class="flow" d="M35 330 H210 M290 330 H430 M610 330 H760 M850 330 H1160"/>
-  <polygon id="valve" class="symbol" points="210,295 250,330 210,365 290,295 250,330 290,365"/>
-  <circle id="compressor" class="equipment" cx="520" cy="330" r="88"/><path class="symbol" d="M475 382 L475 278 L570 315 L570 345 Z"/>
-  <rect id="separator" class="equipment" x="760" y="230" width="90" height="200" rx="42"/><path class="symbol" d="M775 325 H835"/>
-  <circle id="exhaust" class="equipment" cx="945" cy="190" r="43"/><path class="symbol" d="M945 153 V227 M908 190 H982"/>
-  <text x="40" y="308" fill="currentColor" font-size="18">AR / SUCÇÃO</text><text x="1030" y="308" fill="currentColor" font-size="18">DESCARGA</text>
-</svg>
-<div id="tags"></div><div class="footer">Layout provisório configurado em panel/pid.json · futura base para a imagem real do P&amp;ID</div>
+<svg id="shapes" class="shapes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+<div id="tags"></div><div class="footer">Layout configurável em panel/pid.json · use "PLC Codex: Editar Tela P&amp;ID" para editar visualmente</div>
 </section></main>
 <script>
-const variables=new Map(),elements=new Map(),$=id=>document.getElementById(id);let config,events;
+const variables=new Map(),elements=new Map(),shapeElements=new Map(),$=id=>document.getElementById(id);let config,events;
 function applyTheme(theme){document.documentElement.dataset.theme=theme;$('themeButton').textContent=theme==='dark'?'Tema claro':'Tema escuro';localStorage.setItem('plc-codex-theme',theme)}
 async function api(path){const response=await fetch(path,{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);return response.json()}
 function precision(variable,item){if(Number.isInteger(item?.precision))return Math.max(0,Math.min(8,item.precision));return ['REAL','LREAL'].includes(variable?.type)?Math.max(0,Math.min(8,Number(config?.display?.realPrecision??2))):0}
 function text(variable,item){if(!variable)return 'TAG AUSENTE';if(variable.type==='BOOL')return variable.value?'ATIVO':'INATIVO';const value=['REAL','LREAL'].includes(variable.type)?Number(variable.value).toFixed(precision(variable,item)):String(variable.value);return value+(item.unit?' '+item.unit:'')}
-function render(){const root=$('tags');root.replaceChildren();elements.clear();for(const item of config.items||[]){const card=document.createElement('div'),label=document.createElement('div'),value=document.createElement('div'),path=document.createElement('div');card.className='tag';card.style.left=item.x+'%';card.style.top=item.y+'%';label.className='label';label.textContent=item.label;value.className='value';path.className='path';path.textContent=item.tag;card.append(label,value,path);root.append(card);elements.set(item.tag,{card,value,item})}update()}
-function update(){for(const [tag,entry] of elements){const variable=variables.get(tag),on=variable?.type==='BOOL'&&Boolean(variable.value);entry.card.classList.toggle('bool',variable?.type==='BOOL');entry.card.classList.toggle('on',on);entry.card.classList.toggle('missing',!variable);entry.value.textContent=text(variable,entry.item)}const motor=Boolean(variables.get('OutputsDigitais.LigaMotorPrincipal')?.value),valve=Boolean(variables.get('OutputsDigitais.AbreValvulaSucao')?.value),exhaust=Boolean(variables.get('OutputsDigitais.LigaExaustor')?.value);$('process').classList.toggle('running',motor&&valve);$('compressor').classList.toggle('on',motor);$('valve').classList.toggle('on',valve);$('exhaust').classList.toggle('on',exhaust)}
+function esc(value){return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+// Cada tipo de forma vira um <g> no SVG (viewBox 0..100, mesma unidade
+// percentual usada por x/y/width/height no pid.json). x/y sao o CENTRO da
+// forma, igual ao card de tag (translate -50%,-50%) -- convencao unica em
+// todo o schema para simplificar o editor visual.
+function shapeSvg(shape){
+  const cx=Number(shape.x)||0,cy=Number(shape.y)||0,w=Number(shape.width)||6,h=Number(shape.height)||6,rot=Number(shape.rotation)||0;
+  const transform='rotate('+rot+' '+cx+' '+cy+')';
+  const cls='pidshape '+esc(shape.type);
+  const label=shape.label?'<text class="pidshape-label" x="'+cx+'" y="'+(cy+h/2+3.4)+'" text-anchor="middle">'+esc(shape.label)+'</text>':'';
+  switch(shape.type){
+    case 'valve':{
+      const hw=w/2,hh=h/2;
+      return '<g class="'+cls+'" data-id="'+esc(shape.id)+'" transform="'+transform+'"'+'><polygon points="'+
+        (cx-hw)+','+(cy-hh)+' '+cx+','+cy+' '+(cx-hw)+','+(cy+hh)+' '+(cx+hw)+','+(cy-hh)+' '+cx+','+cy+' '+(cx+hw)+','+(cy+hh)+'"/></g>'+label;
+    }
+    case 'pipe':
+      return '<g class="'+cls+'" data-id="'+esc(shape.id)+'" transform="'+transform+'"'+'><rect x="'+(cx-w/2)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="'+Math.min(h/2,2)+'"/></g>'+label;
+    case 'motor':
+      return '<g class="'+cls+'" data-id="'+esc(shape.id)+'" transform="'+transform+'"'+'><circle cx="'+cx+'" cy="'+cy+'" r="'+(w/2)+'"/><text class="pidshape-text" x="'+cx+'" y="'+cy+'" dominant-baseline="central" text-anchor="middle">M</text></g>'+label;
+    case 'pump':
+      return '<g class="'+cls+'" data-id="'+esc(shape.id)+'" transform="'+transform+'"'+'><circle cx="'+cx+'" cy="'+cy+'" r="'+(w/2)+'"/><path class="pidshape-mark" d="M '+(cx-w/5)+' '+(cy-h/5)+' L '+(cx+w/4)+' '+cy+' L '+(cx-w/5)+' '+(cy+h/5)+' Z"/></g>'+label;
+    case 'vessel':
+    case 'tank':
+      return '<g class="'+cls+'" data-id="'+esc(shape.id)+'" transform="'+transform+'"'+'><rect x="'+(cx-w/2)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="'+(Math.min(w,h)/2)+'"/></g>'+label;
+    case 'label':
+      return '<text class="pidshape-label" x="'+cx+'" y="'+cy+'" text-anchor="middle" transform="'+transform+'">'+esc(shape.text||shape.label||'')+'</text>';
+    default:
+      return '';
+  }
+}
+function renderShapes(){const root=$('shapes');root.replaceChildren();shapeElements.clear();for(const shape of config.shapes||[]){const wrap=document.createElementNS('http://www.w3.org/2000/svg','g');wrap.innerHTML=shapeSvg(shape);const g=wrap.querySelector('[data-id]');root.append(...wrap.childNodes);if(g&&shape.tag)shapeElements.set(shape.id,{el:g,shape})}}
+function renderTags(){const root=$('tags');root.replaceChildren();elements.clear();for(const item of config.items||[]){const card=document.createElement('div'),label=document.createElement('div'),value=document.createElement('div'),path=document.createElement('div');card.className='tag';card.style.left=item.x+'%';card.style.top=item.y+'%';label.className='label';label.textContent=item.label;value.className='value';path.className='path';path.textContent=item.tag;card.append(label,value,path);root.append(card);elements.set(item.tag,{card,value,item})}}
+function updateShapeColors(){for(const {el,shape} of shapeElements.values()){const variable=variables.get(shape.tag),on=variable?.type==='BOOL'&&Boolean(variable.value);el.classList.toggle('on',on);if(shape.onColor||shape.offColor)el.style.fill=on?(shape.onColor||''):(shape.offColor||'')}}
+function update(){for(const [tag,entry] of elements){const variable=variables.get(tag),on=variable?.type==='BOOL'&&Boolean(variable.value);entry.card.classList.toggle('bool',variable?.type==='BOOL');entry.card.classList.toggle('on',on);entry.card.classList.toggle('missing',!variable);entry.value.textContent=text(variable,entry.item)}updateShapeColors()}
 $('themeButton').onclick=()=>applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');$('commandsButton').onclick=()=>window.open(location.protocol+'//'+location.hostname+':'+(Number(location.port)-1),'_blank');
-async function boot(){config=await api('/api/pid-config');applyTheme(localStorage.getItem('plc-codex-theme')||config.display?.theme||'light');$('title').textContent=config.title||'P&ID · PROCESSO';if(config.backgroundImage){$('process').style.backgroundImage='url('+JSON.stringify(config.backgroundImage)+')';$('process').classList.add('has-background')}const initial=await api('/api/variables');for(const variable of initial.variables||[])variables.set(variable.path,variable);render();events=new EventSource('/api/events/variables');events.onmessage=event=>{for(const variable of JSON.parse(event.data).variables||[])variables.set(variable.path,variable);update();$('status').textContent='● ONLINE';$('status').className='status online'};events.onerror=()=>{$('status').textContent='● DESCONECTADO';$('status').className='status'}}boot().catch(error=>$('status').textContent='● ERRO · '+error.message);window.addEventListener('beforeunload',()=>events?.close());
+async function boot(){config=await api('/api/pid-config');applyTheme(localStorage.getItem('plc-codex-theme')||config.display?.theme||'light');$('title').textContent=config.title||'P&ID · PROCESSO';if(config.backgroundImage){$('process').style.backgroundImage='url('+JSON.stringify(config.backgroundImage)+')';$('process').classList.add('has-background')}const initial=await api('/api/variables');for(const variable of initial.variables||[])variables.set(variable.path,variable);renderShapes();renderTags();update();events=new EventSource('/api/events/variables');events.onmessage=event=>{for(const variable of JSON.parse(event.data).variables||[])variables.set(variable.path,variable);update();$('status').textContent='● ONLINE';$('status').className='status online'};events.onerror=()=>{$('status').textContent='● DESCONECTADO';$('status').className='status'}}boot().catch(error=>$('status').textContent='● ERRO · '+error.message);window.addEventListener('beforeunload',()=>events?.close());
 </script>
 </body>
 </html>

@@ -7,6 +7,43 @@ const http = require('http');
 const net = require('net');
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 6 });
 
+// Precisa funcionar em: Linux/macOS (bash do PATH, sem mudanca nenhuma),
+// Windows com WSL2 habilitado (o bash do WSL funciona, pode ficar como
+// fallback), e Windows SEM WSL2 (o caso mais comum de falhar): muitas
+// instalacoes tem C:\Windows\System32\bash.exe (o launcher do WSL) antes
+// do bash.exe do Git no PATH do sistema, e no Windows spawn('bash') sem
+// shell:true resolve exatamente por essa ordem de PATH — se o WSL2 nao
+// estiver habilitado (virtualizacao desligada), isso falha na hora e o
+// Build/Play nunca chega a rodar o script de verdade, nao importa se o
+// usuario tem Git instalado e funcional. Por isso, no Windows, resolvemos
+// um caminho absoluto para o bash.exe do Git ANTES de cair para o 'bash'
+// puro do PATH (que so da certo se o WSL estiver mesmo habilitado, ou se
+// o Git por acaso vier primeiro no PATH). `where git` acha o Git em
+// qualquer local de instalacao (nao so o padrao), inclusive Git portatil;
+// PLC_CODEX_BASH deixa o usuario apontar para qualquer bash manualmente.
+function resolveBashCommand() {
+  if (process.platform !== 'win32') return 'bash';
+  const candidates = [];
+  if (process.env.PLC_CODEX_BASH) candidates.push(process.env.PLC_CODEX_BASH);
+  try {
+    const gitExe = cp.execSync('where git', { encoding: 'utf8', windowsHide: true })
+      .split(/\r?\n/).map(line => line.trim()).find(Boolean);
+    if (gitExe) {
+      // .../Git/cmd/git.exe ou .../Git/bin/git.exe -> .../Git/bin/bash.exe
+      candidates.push(path.join(path.dirname(gitExe), '..', 'bin', 'bash.exe'));
+    }
+  } catch (_) {}
+  candidates.push(
+    'C:\\Program Files\\Git\\bin\\bash.exe',
+    'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
+  );
+  for (const candidate of candidates) {
+    try { if (candidate && fs.existsSync(candidate)) return path.resolve(candidate); } catch (_) {}
+  }
+  return 'bash'; // ultimo recurso: PATH do sistema (funciona se o WSL2 estiver habilitado)
+}
+const BASH_CMD = resolveBashCommand();
+
 const runtimes = new Map();
 const startingProjects = new Set();
 let output;
@@ -234,7 +271,7 @@ async function requireProject(context) {
 }
 
 function runScript(root, script, onExit, extraEnv = {}) {
-  const child = cp.spawn('bash', [path.join(root, 'runtime', script)], {
+  const child = cp.spawn(BASH_CMD, [path.join(root, 'runtime', script)], {
     cwd: root,
     env: { ...process.env, ...extraEnv }
   });
@@ -252,7 +289,7 @@ function runRuntimeDetached(root, onExit, extraEnv = {}) {
   const logPath = path.join(root, '.plcsim', 'runtime.log');
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
   const log = fs.openSync(logPath, 'a');
-  const child = cp.spawn('bash', [path.join(root, 'runtime', 'run.sh')], {
+  const child = cp.spawn(BASH_CMD, [path.join(root, 'runtime', 'run.sh')], {
     cwd: root,
     env: { ...process.env, ...extraEnv },
     detached: true,
@@ -338,7 +375,7 @@ async function showBuildFailure(project, transcript) {
 function buildProject(project) {
   return new Promise(resolve => {
     let transcript = '';
-    const child = cp.spawn('bash', [path.join(project, 'runtime', 'build.sh')], { cwd: project, env: process.env });
+    const child = cp.spawn(BASH_CMD, [path.join(project, 'runtime', 'build.sh')], { cwd: project, env: process.env });
     const receive = data => { const value = data.toString(); transcript += value; output.append(value); };
     child.stdout.on('data', receive); child.stderr.on('data', receive);
     child.on('error', error => { transcript += error.message; output.appendLine(`Erro: ${error.message}`); resolve({ code: -1, transcript }); });
@@ -771,6 +808,7 @@ for(const key of fields){$(key).oninput=()=>{if(!selected)return;const item=conf
 async function openPidEditor(project) {
   const target = path.join(project, 'panel', 'pid.json');
   const configuration = JSON.parse(fs.readFileSync(target, 'utf8'));
+  if (!Array.isArray(configuration.shapes)) configuration.shapes = [];
   const catalog = projectVariableCatalog(project);
   const panel = vscode.window.createWebviewPanel('plcCodexPidEditor', `Editor P&ID · ${projectManifest(project).name}`, vscode.ViewColumn.One, { enableScripts: true, localResourceRoots: [vscode.Uri.file(path.join(project, 'panel'))] });
   let backgroundUri = '';
@@ -778,17 +816,111 @@ async function openPidEditor(project) {
     const local = path.join(project, 'panel', configuration.backgroundImage.replace(/^\/+/, ''));
     if (fs.existsSync(local)) backgroundUri = panel.webview.asWebviewUri(vscode.Uri.file(local)).toString();
   }
-  const safeData = JSON.stringify({ configuration, catalog, backgroundUri }).replace(/</g, '\\u003c');
+  // Tipos de forma basica de P&ID que o usuario pode desenhar livremente na
+  // tela (alem dos cartoes de tag que ja existiam) — geometria simples o
+  // bastante para nao precisar de biblioteca de desenho, mas reconhecivel
+  // como simbolo de instrumentacao/processo. w/h sao o tamanho padrao (%)
+  // ao adicionar; o usuario redimensiona depois.
+  const shapeTypes = [
+    { type: 'valve', label: 'Válvula', w: 6, h: 6 },
+    { type: 'pipe', label: 'Tubulação', w: 16, h: 2.5 },
+    { type: 'motor', label: 'Motor', w: 9, h: 9 },
+    { type: 'pump', label: 'Bomba', w: 8, h: 8 },
+    { type: 'vessel', label: 'Vaso / tanque', w: 8, h: 20 },
+    { type: 'label', label: 'Rótulo de texto', w: 16, h: 4 },
+  ];
+  const safeData = JSON.stringify({ configuration, catalog, backgroundUri, shapeTypes }).replace(/</g, '\\u003c');
   panel.webview.html = `<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-body{margin:0;font:12px var(--vscode-font-family);color:var(--vscode-foreground);background:var(--vscode-editor-background)}header{height:48px;display:flex;align-items:center;gap:7px;padding:0 10px;border-bottom:1px solid var(--vscode-panel-border)}h1{font-size:15px;margin:0;flex:1}button{border:0;border-radius:3px;padding:6px 9px;color:var(--vscode-button-foreground);background:var(--vscode-button-background);cursor:pointer}.secondary{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground)}main{height:calc(100vh - 49px);display:grid;grid-template-columns:250px minmax(500px,1fr) 250px}.side{padding:9px;overflow:auto}.left{border-right:1px solid var(--vscode-panel-border)}.right{border-left:1px solid var(--vscode-panel-border)}input{width:100%;padding:6px;border:1px solid var(--vscode-input-border);background:var(--vscode-input-background);color:var(--vscode-input-foreground);border-radius:3px}.tags{display:grid;gap:3px;margin-top:7px}.source{padding:5px;border:1px solid var(--vscode-panel-border);border-radius:3px;cursor:grab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.workspace{padding:10px;overflow:auto}.canvas{position:relative;width:100%;aspect-ratio:16/9;min-height:440px;border:1px solid var(--vscode-panel-border);background-color:var(--vscode-editorWidget-background);background-position:center;background-size:contain;background-repeat:no-repeat;overflow:hidden}.canvas.drag{outline:2px solid var(--vscode-focusBorder)}.item{position:absolute;transform:translate(-50%,-50%);width:145px;padding:6px;border:1px solid var(--vscode-focusBorder);border-left:4px solid var(--vscode-testing-iconPassed);border-radius:3px;background:var(--vscode-editor-background);box-shadow:0 1px 4px #0004;cursor:move;user-select:none}.item.active{outline:2px solid var(--vscode-focusBorder)}.item b,.item small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.item small{color:var(--vscode-descriptionForeground);margin-top:3px}.form{display:grid;gap:8px}.field{display:grid;gap:3px}.row{display:grid;grid-template-columns:1fr 1fr;gap:6px}.empty{color:var(--vscode-descriptionForeground);padding:10px}.result{color:var(--vscode-testing-iconPassed)}@media(max-width:900px){main{grid-template-columns:200px 1fr}.right{grid-column:1/-1;border-left:0;border-top:1px solid var(--vscode-panel-border)}}
-</style></head><body><header><h1>Editor visual do P&amp;ID</h1><span id="result" class="result"></span><button id="background" class="secondary">Imagem de fundo</button><button id="clearBackground" class="secondary">Remover imagem</button><button id="save">Salvar pid.json</button></header><main><aside class="side left"><input id="search" placeholder="Filtrar variáveis..."><div id="sources" class="tags"></div></aside><section class="workspace"><div id="canvas" class="canvas"></div></section><aside class="side right"><h2>Cartão selecionado</h2><div id="empty" class="empty">Arraste uma variável para o desenho.</div><div id="form" class="form" hidden><div class="field"><label>Tag</label><input id="tag" readonly></div><div class="field"><label>Rótulo</label><input id="label"></div><div class="row"><div class="field"><label>Unidade</label><input id="unit"></div><div class="field"><label>Precisão</label><input id="precision" type="number" min="0" max="8"></div></div><div class="row"><div class="field"><label>X (%)</label><input id="x" type="number" min="0" max="100"></div><div class="field"><label>Y (%)</label><input id="y" type="number" min="0" max="100"></div></div><button id="remove" class="secondary">Remover cartão</button></div></aside></main><script>
-const vscode=acquireVsCodeApi(),data=${safeData},config=data.configuration,catalog=data.catalog,$=id=>document.getElementById(id);let selected=-1,dragging=-1;const canvas=$('canvas');if(data.backgroundUri)canvas.style.backgroundImage='url('+JSON.stringify(data.backgroundUri)+')';
-function renderSources(){const q=$('search').value.toLowerCase(),root=$('sources');root.replaceChildren();for(const variable of catalog.filter(v=>v.path.toLowerCase().includes(q)).slice(0,500)){const row=document.createElement('div');row.className='source';row.draggable=true;row.textContent=variable.path;row.title=variable.type+' · '+variable.source;row.ondragstart=e=>e.dataTransfer.setData('text/plain',variable.path);root.append(row)}}
-function position(event,index){const rect=canvas.getBoundingClientRect(),item=config.items[index];item.x=Math.max(0,Math.min(100,(event.clientX-rect.left)*100/rect.width));item.y=Math.max(0,Math.min(100,(event.clientY-rect.top)*100/rect.height));renderItems();renderForm()}
-function renderItems(){canvas.querySelectorAll('.item').forEach(node=>node.remove());for(const [index,item] of config.items.entries()){const card=document.createElement('div');card.className='item'+(selected===index?' active':'');card.style.left=item.x+'%';card.style.top=item.y+'%';card.innerHTML='<b></b><small></small>';card.children[0].textContent=item.label||item.tag.split('.').pop();card.children[1].textContent=item.tag;card.onpointerdown=e=>{selected=index;dragging=index;card.setPointerCapture(e.pointerId);renderItems();renderForm()};card.onpointermove=e=>{if(dragging===index)position(e,index)};card.onpointerup=()=>dragging=-1;canvas.append(card)}}
-function add(path,event){const rect=canvas.getBoundingClientRect(),variable=catalog.find(v=>v.path===path),isReal=['REAL','LREAL'].includes(variable?.type);config.items.push({tag:path,label:path.split('.').pop(),x:Math.round((event.clientX-rect.left)*1000/rect.width)/10,y:Math.round((event.clientY-rect.top)*1000/rect.height)/10,...(isReal?{precision:config.display?.realPrecision??2}:{})});selected=config.items.length-1;renderItems();renderForm()}
-canvas.ondragover=e=>{e.preventDefault();canvas.classList.add('drag')};canvas.ondragleave=()=>canvas.classList.remove('drag');canvas.ondrop=e=>{e.preventDefault();canvas.classList.remove('drag');const path=e.dataTransfer.getData('text/plain');if(path)add(path,e)};
-const fields=['label','unit','precision','x','y'];function renderForm(){const item=config.items[selected];$('empty').hidden=Boolean(item);$('form').hidden=!item;if(!item)return;$('tag').value=item.tag;for(const key of fields)$(key).value=item[key]??''}for(const key of fields)$(key).oninput=()=>{const item=config.items[selected];if(!item)return;const value=$(key).value;if(['precision','x','y'].includes(key))value===''?delete item[key]:item[key]=Number(value);else value===''?delete item[key]:item[key]=value;renderItems()};$('remove').onclick=()=>{if(selected<0)return;config.items.splice(selected,1);selected=-1;renderItems();renderForm()};$('search').oninput=renderSources;$('background').onclick=()=>vscode.postMessage({type:'pickBackground'});$('clearBackground').onclick=()=>{delete config.backgroundImage;canvas.style.backgroundImage='none'};$('save').onclick=()=>vscode.postMessage({type:'save',configuration:config});window.addEventListener('message',e=>{if(e.data.type==='background'){config.backgroundImage=e.data.relative;canvas.style.backgroundImage='url('+JSON.stringify(e.data.uri)+')'}$('result').textContent=e.data.type==='saved'?'Salvo. Recarregue o P&ID.':e.data.type==='error'?'Erro: '+e.data.message:''});renderSources();renderItems();renderForm();
+body{margin:0;font:12px var(--vscode-font-family);color:var(--vscode-foreground);background:var(--vscode-editor-background)}header{height:48px;display:flex;align-items:center;gap:7px;padding:0 10px;border-bottom:1px solid var(--vscode-panel-border)}h1{font-size:15px;margin:0;flex:1}button{border:0;border-radius:3px;padding:6px 9px;color:var(--vscode-button-foreground);background:var(--vscode-button-background);cursor:pointer}.secondary{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground)}main{height:calc(100vh - 49px);display:grid;grid-template-columns:250px minmax(500px,1fr) 260px}.side{padding:9px;overflow:auto}.left{border-right:1px solid var(--vscode-panel-border);display:flex;flex-direction:column;min-height:0}.right{border-left:1px solid var(--vscode-panel-border)}input,select{width:100%;padding:6px;border:1px solid var(--vscode-input-border);background:var(--vscode-input-background);color:var(--vscode-input-foreground);border-radius:3px}input[type=color]{padding:2px;height:30px}h2{font-size:11px;text-transform:uppercase;color:var(--vscode-descriptionForeground);margin:12px 0 6px}h2:first-child{margin-top:0}.tags{display:grid;gap:3px;margin-top:7px}.source{padding:5px;border:1px solid var(--vscode-panel-border);border-radius:3px;cursor:grab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.palette{display:grid;grid-template-columns:1fr 1fr;gap:5px}.palette button{padding:8px 5px;font-size:11px;text-align:center}.workspace{padding:10px;overflow:auto}.canvas{position:relative;width:100%;aspect-ratio:16/9;min-height:440px;border:1px solid var(--vscode-panel-border);background-color:var(--vscode-editorWidget-background);background-position:center;background-size:contain;background-repeat:no-repeat;overflow:hidden}.canvas.drag{outline:2px solid var(--vscode-focusBorder)}.item{position:absolute;transform:translate(-50%,-50%);width:145px;padding:6px;border:1px solid var(--vscode-focusBorder);border-left:4px solid var(--vscode-testing-iconPassed);border-radius:3px;background:var(--vscode-editor-background);box-shadow:0 1px 4px #0004;cursor:move;user-select:none;z-index:2}.item.active{outline:2px solid var(--vscode-focusBorder)}.item b,.item small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.item small{color:var(--vscode-descriptionForeground);margin-top:3px}.shape{position:absolute;transform:translate(-50%,-50%);cursor:move;user-select:none;display:flex;align-items:center;justify-content:center}.shape svg{width:100%;height:100%;overflow:visible;fill:var(--vscode-charts-blue,#4b8ccb);stroke:var(--vscode-panel-border);stroke-width:2;opacity:.8}.shape.active svg{outline:2px solid var(--vscode-focusBorder);opacity:1}.shape.type-label{color:var(--vscode-foreground);font-size:11px;white-space:nowrap}.shape .caption{position:absolute;top:100%;left:50%;transform:translateX(-50%);font-size:9px;color:var(--vscode-descriptionForeground);white-space:nowrap;margin-top:2px}.handle{position:absolute;right:-5px;bottom:-5px;width:10px;height:10px;background:var(--vscode-focusBorder);border-radius:2px;cursor:nwse-resize}.form{display:grid;gap:8px}.field{display:grid;gap:3px}.row{display:grid;grid-template-columns:1fr 1fr;gap:6px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}.empty{color:var(--vscode-descriptionForeground);padding:10px}.result{color:var(--vscode-testing-iconPassed)}small.hint{color:var(--vscode-descriptionForeground)}@media(max-width:900px){main{grid-template-columns:200px 1fr}.right{grid-column:1/-1;border-left:0;border-top:1px solid var(--vscode-panel-border)}}
+</style></head><body><header><h1>Editor visual do P&amp;ID</h1><span id="result" class="result"></span><button id="background" class="secondary">Imagem de fundo</button><button id="clearBackground" class="secondary">Remover imagem</button><button id="save">Salvar pid.json</button></header><main>
+<aside class="side left">
+<h2>Formas do processo</h2>
+<div id="palette" class="palette"></div>
+<h2>Variáveis (arraste para um cartão de valor)</h2>
+<input id="search" placeholder="Filtrar variáveis...">
+<div id="sources" class="tags"></div>
+</aside>
+<section class="workspace"><div id="canvas" class="canvas"></div></section>
+<aside class="side right">
+<h2>Seleção</h2>
+<div id="empty" class="empty">Adicione uma forma ou arraste uma variável para criar um cartão de valor.</div>
+<div id="itemForm" class="form" hidden>
+<div class="field"><label>Tag</label><input id="tag" readonly></div>
+<div class="field"><label>Rótulo</label><input id="label"></div>
+<div class="row"><div class="field"><label>Unidade</label><input id="unit"></div><div class="field"><label>Precisão</label><input id="precision" type="number" min="0" max="8"></div></div>
+<div class="row"><div class="field"><label>X (%)</label><input id="x" type="number" min="0" max="100"></div><div class="field"><label>Y (%)</label><input id="y" type="number" min="0" max="100"></div></div>
+<button id="removeItem" class="secondary">Remover cartão</button>
+</div>
+<div id="shapeForm" class="form" hidden>
+<div class="field"><label>Tipo</label><input id="shapeType" readonly></div>
+<div class="field"><label id="shapeLabelLabel">Rótulo</label><input id="shapeLabel"></div>
+<div class="field" id="shapeTagField"><label>Tag associada (opcional)</label><input id="shapeTag" list="catalogList" placeholder="Ex.: MotorPrincipal.ComandoSaida"><small class="hint">Para BOOL: pinta a forma quando ligado/aberto.</small></div>
+<div class="row" id="shapeColors"><div class="field"><label>Cor ligado</label><input id="shapeOnColor" type="color"></div><div class="field"><label>Cor desligado</label><input id="shapeOffColor" type="color"></div></div>
+<div class="row3"><div class="field"><label>X (%)</label><input id="shapeX" type="number" min="0" max="100" step="0.5"></div><div class="field"><label>Y (%)</label><input id="shapeY" type="number" min="0" max="100" step="0.5"></div><div class="field"><label>Rotação (°)</label><input id="shapeRot" type="number" step="5"></div></div>
+<div class="row"><div class="field"><label>Largura (%)</label><input id="shapeW" type="number" min="1" max="100" step="0.5"></div><div class="field"><label>Altura (%)</label><input id="shapeH" type="number" min="1" max="100" step="0.5"></div></div>
+<button id="removeShape" class="secondary">Remover forma</button>
+</div>
+<datalist id="catalogList"></datalist>
+</aside>
+</main><script>
+const vscode=acquireVsCodeApi(),data=${safeData},config=data.configuration,catalog=data.catalog,shapeTypes=data.shapeTypes,$=id=>document.getElementById(id);
+// selection = {kind:'item'|'shape', index} ou null. dragging/resizing guardam o mesmo formato + modo, para o pointermove global saber o que atualizar.
+let selection=null,drag=null;
+const canvas=$('canvas');if(data.backgroundUri)canvas.style.backgroundImage='url('+JSON.stringify(data.backgroundUri)+')';
+function shapeIcon(type){switch(type){
+  case 'valve':return '<svg viewBox="0 0 100 100" preserveAspectRatio="none"><polygon points="0,15 50,50 0,85 100,15 50,50 100,85"/></svg>';
+  case 'pipe':return '<svg viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="0" y="25" width="100" height="50" rx="20"/></svg>';
+  case 'motor':return '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"/><text x="50" y="52" text-anchor="middle" dominant-baseline="middle" font-size="40" fill="var(--vscode-editor-background)" stroke="none">M</text></svg>';
+  case 'pump':return '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"/><path d="M30 28 L74 50 L30 72 Z" fill="var(--vscode-editor-background)" stroke="none"/></svg>';
+  case 'vessel':return '<svg viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="10" y="0" width="80" height="100" rx="38"/></svg>';
+  default:return '';
+}}
+for(const def of shapeTypes){const btn=document.createElement('button');btn.className='secondary';btn.textContent=def.label;btn.title='Adicionar '+def.label;btn.onclick=()=>addShape(def);$('palette').append(btn)}
+function addShape(def){const id='shape_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);config.shapes.push({id,type:def.type,x:50,y:50,width:def.w,height:def.h,rotation:0,label:def.type==='label'?'Texto':'',tag:'',onColor:'#4d7558',offColor:'#914949'});select('shape',config.shapes.length-1);renderCanvas()}
+function select(kind,index){selection={kind,index};renderCanvas();renderForm()}
+function clampPct(v){return Math.max(0,Math.min(100,v))}
+function pointerPct(event){const rect=canvas.getBoundingClientRect();return{x:clampPct((event.clientX-rect.left)*100/rect.width),y:clampPct((event.clientY-rect.top)*100/rect.height)}}
+function renderSources(){const q=$('search').value.toLowerCase(),root=$('sources');root.replaceChildren();const list=$('catalogList');list.replaceChildren();for(const variable of catalog){const opt=document.createElement('option');opt.value=variable.path;list.append(opt)}for(const variable of catalog.filter(v=>v.path.toLowerCase().includes(q)).slice(0,500)){const row=document.createElement('div');row.className='source';row.draggable=true;row.textContent=variable.path;row.title=variable.type+' · '+variable.source;row.ondragstart=e=>e.dataTransfer.setData('text/plain',variable.path);root.append(row)}}
+function renderCanvas(){
+  canvas.querySelectorAll('.item,.shape').forEach(node=>node.remove());
+  for(const [index,shape] of config.shapes.entries()){
+    const el=document.createElement('div');
+    el.className='shape type-'+shape.type+(selection?.kind==='shape'&&selection.index===index?' active':'');
+    el.style.left=shape.x+'%';el.style.top=shape.y+'%';el.style.width=shape.width+'%';el.style.height=shape.height+'%';el.style.transform='translate(-50%,-50%) rotate('+(shape.rotation||0)+'deg)';
+    if(shape.type==='label'){el.textContent=shape.label||'Texto'}else{el.innerHTML=shapeIcon(shape.type);if(shape.label){const caption=document.createElement('span');caption.className='caption';caption.textContent=shape.label;el.append(caption)}}
+    el.onpointerdown=e=>{e.stopPropagation();select('shape',index);drag={kind:'shape',index,mode:'move'};el.setPointerCapture(e.pointerId)};
+    el.onpointermove=e=>{if(drag&&drag.kind==='shape'&&drag.index===index&&drag.mode==='move'){const p=pointerPct(e);shape.x=p.x;shape.y=p.y;renderCanvas()}};
+    el.onpointerup=()=>{drag=null};
+    if(selection?.kind==='shape'&&selection.index===index){const handle=document.createElement('div');handle.className='handle';handle.onpointerdown=e=>{e.stopPropagation();drag={kind:'shape',index,mode:'resize'};handle.setPointerCapture(e.pointerId)};handle.onpointermove=e=>{if(drag&&drag.mode==='resize'&&drag.index===index){const rect=canvas.getBoundingClientRect();shape.width=Math.max(1,Math.min(100,(e.clientX-rect.left)*100/rect.width-shape.x+shape.width/2));shape.height=Math.max(1,Math.min(100,(e.clientY-rect.top)*100/rect.height-shape.y+shape.height/2));renderCanvas()}};handle.onpointerup=()=>{drag=null};el.append(handle)}
+    canvas.append(el);
+  }
+  for(const [index,item] of config.items.entries()){const card=document.createElement('div');card.className='item'+(selection?.kind==='item'&&selection.index===index?' active':'');card.style.left=item.x+'%';card.style.top=item.y+'%';card.innerHTML='<b></b><small></small>';card.children[0].textContent=item.label||item.tag.split('.').pop();card.children[1].textContent=item.tag;card.onpointerdown=e=>{e.stopPropagation();select('item',index);drag={kind:'item',index,mode:'move'};card.setPointerCapture(e.pointerId)};card.onpointermove=e=>{if(drag&&drag.kind==='item'&&drag.index===index){const p=pointerPct(e);item.x=p.x;item.y=p.y;renderCanvas()}};card.onpointerup=()=>{drag=null};canvas.append(card)}
+}
+function add(tagPath,event){const rect=canvas.getBoundingClientRect(),variable=catalog.find(v=>v.path===tagPath),isReal=['REAL','LREAL'].includes(variable?.type);config.items.push({tag:tagPath,label:tagPath.split('.').pop(),x:Math.round((event.clientX-rect.left)*1000/rect.width)/10,y:Math.round((event.clientY-rect.top)*1000/rect.height)/10,...(isReal?{precision:config.display?.realPrecision??2}:{})});select('item',config.items.length-1)}
+canvas.ondragover=e=>{e.preventDefault();canvas.classList.add('drag')};canvas.ondragleave=()=>canvas.classList.remove('drag');canvas.ondrop=e=>{e.preventDefault();canvas.classList.remove('drag');const p=e.dataTransfer.getData('text/plain');if(p)add(p,e)};
+canvas.onpointerdown=()=>{select(null,-1)};
+const itemFields=['label','unit','precision','x','y'];
+const shapeFieldMap={shapeLabel:'label',shapeTag:'tag',shapeOnColor:'onColor',shapeOffColor:'offColor',shapeX:'x',shapeY:'y',shapeRot:'rotation',shapeW:'width',shapeH:'height'};
+function renderForm(){
+  const item=selection?.kind==='item'?config.items[selection.index]:null;
+  const shape=selection?.kind==='shape'?config.shapes[selection.index]:null;
+  $('empty').hidden=Boolean(item||shape);$('itemForm').hidden=!item;$('shapeForm').hidden=!shape;
+  if(item){$('tag').value=item.tag;for(const key of itemFields)$(key).value=item[key]??''}
+  if(shape){
+    $('shapeType').value=shapeTypes.find(t=>t.type===shape.type)?.label||shape.type;
+    $('shapeLabelLabel').textContent=shape.type==='label'?'Texto':'Rótulo';
+    $('shapeTagField').hidden=shape.type==='label';$('shapeColors').hidden=shape.type==='label'||!shape.tag;
+    $('shapeLabel').value=shape.label??'';$('shapeTag').value=shape.tag??'';$('shapeOnColor').value=shape.onColor||'#4d7558';$('shapeOffColor').value=shape.offColor||'#914949';
+    $('shapeX').value=shape.x??0;$('shapeY').value=shape.y??0;$('shapeRot').value=shape.rotation??0;$('shapeW').value=shape.width??6;$('shapeH').value=shape.height??6;
+  }
+}
+for(const key of itemFields)$(key).oninput=()=>{const item=config.items[selection?.index];if(!item)return;const value=$(key).value;if(['precision','x','y'].includes(key))value===''?delete item[key]:item[key]=Number(value);else value===''?delete item[key]:item[key]=value;renderCanvas()};
+for(const [id,key] of Object.entries(shapeFieldMap))$(id).oninput=()=>{const shape=config.shapes[selection?.index];if(!shape)return;const value=$(id).value;if(['x','y','rotation','width','height'].includes(key))shape[key]=value===''?0:Number(value);else shape[key]=value;if(id==='shapeTag')renderForm();renderCanvas()};
+$('removeItem').onclick=()=>{if(selection?.kind!=='item')return;config.items.splice(selection.index,1);select(null,-1)};
+$('removeShape').onclick=()=>{if(selection?.kind!=='shape')return;config.shapes.splice(selection.index,1);select(null,-1)};
+$('search').oninput=renderSources;$('background').onclick=()=>vscode.postMessage({type:'pickBackground'});$('clearBackground').onclick=()=>{delete config.backgroundImage;canvas.style.backgroundImage='none'};$('save').onclick=()=>vscode.postMessage({type:'save',configuration:config});
+window.addEventListener('message',e=>{if(e.data.type==='background'){config.backgroundImage=e.data.relative;canvas.style.backgroundImage='url('+JSON.stringify(e.data.uri)+')'}$('result').textContent=e.data.type==='saved'?'Salvo. Recarregue o P&ID.':e.data.type==='error'?'Erro: '+e.data.message:''});
+renderSources();renderCanvas();renderForm();
 </script></body></html>`;
   panel.webview.onDidReceiveMessage(async message => {
     try {
@@ -801,11 +933,20 @@ const fields=['label','unit','precision','x','y'];function renderForm(){const it
         panel.webview.postMessage({ type: 'background', relative: `assets/${path.basename(destination)}`, uri: panel.webview.asWebviewUri(vscode.Uri.file(destination)).toString() });
       } else if (message.type === 'save') {
         const next = message.configuration,validPaths=new Set(catalog.map(variable=>variable.path));
+        const allowedShapeTypes = new Set(shapeTypes.map(t => t.type));
         if (!Array.isArray(next.items)) throw new Error('Lista de itens inválida.');
         for (const item of next.items) {
           if (!validPaths.has(item.tag)) throw new Error(`Tag inexistente: ${item.tag}`);
           if (![item.x,item.y].every(value=>Number.isFinite(value)&&value>=0&&value<=100)) throw new Error(`Posição inválida em ${item.tag}.`);
           if (item.precision!==undefined&&(!Number.isInteger(item.precision)||item.precision<0||item.precision>8)) throw new Error(`Precisão inválida em ${item.tag}.`);
+        }
+        if (!Array.isArray(next.shapes)) throw new Error('Lista de formas inválida.');
+        for (const shape of next.shapes) {
+          if (!allowedShapeTypes.has(shape.type)) throw new Error(`Tipo de forma desconhecido: ${shape.type}`);
+          if (![shape.x, shape.y].every(value => Number.isFinite(value) && value >= 0 && value <= 100)) throw new Error(`Posição inválida na forma ${shape.id}.`);
+          if (![shape.width, shape.height].every(value => Number.isFinite(value) && value > 0 && value <= 100)) throw new Error(`Tamanho inválido na forma ${shape.id}.`);
+          if (shape.rotation !== undefined && !Number.isFinite(shape.rotation)) throw new Error(`Rotação inválida na forma ${shape.id}.`);
+          if (shape.tag && !validPaths.has(shape.tag)) throw new Error(`Tag inexistente na forma ${shape.id}: ${shape.tag}`);
         }
         fs.writeFileSync(target,JSON.stringify(next,null,2)+'\n');panel.webview.postMessage({type:'saved'});
       }
@@ -1697,7 +1838,7 @@ async function activate(context) {
         fs.copyFileSync(path.join(context.extensionPath, 'template', 'projeto-plc', 'panel', selected.file), target);
       }
       await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(target));
-      vscode.window.showInformationMessage(selected.file === 'pid.json' ? 'Edite tag, x, y e precision; depois recarregue o P&ID.' : 'Edite area, tag, kind, writable e precision; depois recarregue Comandos.');
+      vscode.window.showInformationMessage(selected.file === 'pid.json' ? 'Edite items (tag/x/y/precision) e shapes (válvula/tubulação/motor/bomba/vaso/rótulo); ou use "PLC Codex: Editar Tela P&ID" para editar visualmente. Depois recarregue o P&ID.' : 'Edite area, tag, kind, writable e precision; depois recarregue Comandos.');
     }),
     vscode.commands.registerCommand('plcCodex.newProject', async () => {
       try {

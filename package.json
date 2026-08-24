@@ -1,373 +1,378 @@
 {
-  "name": "plc-codex",
-  "displayName": "PLC Codex Simulator",
-  "description": "Compila e executa projetos ST IEC 61131-3 locais.",
-  "version": "0.25.0",
-  "publisher": "plc-codex",
-  "engines": {
-    "vscode": "^1.85.0"
-  },
-  "categories": [
-    "Programming Languages",
-    "Other"
-  ],
-  "activationEvents": [
-    "onView:plcCodex.projects",
-    "onView:plcCodex.runtimeControl",
-    "onView:plcCodex.liveDebug",
-    "onCommand:plcCodex.selectProject",
-    "onCommand:plcCodex.playProject",
-    "onCommand:plcCodex.refreshVariables",
-    "onCommand:plcCodex.writeVariable",
-    "onCommand:plcCodex.forceVariable",
-    "onCommand:plcCodex.unforceVariable",
-    "onCommand:plcCodex.exportXml",
-    "onCommand:plcCodex.newProject",
-    "onCommand:plcCodex.importXml",
-    "onCommand:plcCodex.addProject",
-    "onCommand:plcCodex.removeProject",
-    "onCommand:plcCodex.stopAll",
-    "onCommand:plcCodex.configureProject",
-    "onCommand:plcCodex.editMapping",
-    "onCommand:plcCodex.editPid",
-    "onCommand:plcCodex.configurePanel",
-    "onCommand:plcCodex.build",
-    "onCommand:plcCodex.play",
-    "onCommand:plcCodex.stop",
-    "onCommand:plcCodex.openPanel",
-    "onCommand:plcCodex.openPid",
-    "onCommand:plcCodex.openProjectPid",
-    "onCommand:plcCodex.runScenarios",
-    "onCommand:plcCodex.importReport"
-  ],
-  "main": "./extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "plcCodex.configureProject",
-        "title": "PLC Codex: Configurar Projeto",
-        "icon": "$(settings)"
-      },
-      {
-        "command": "plcCodex.editMapping",
-        "title": "PLC Codex: Mapear Tags nas Telas",
-        "icon": "$(layout)"
-      },
-      {
-        "command": "plcCodex.editPid",
-        "title": "PLC Codex: Editar P&ID Visualmente",
-        "icon": "$(symbol-structure)"
-      },
-      {
-        "command": "plcCodex.runScenarios",
-        "title": "PLC Codex: Executar Cenários de Teste",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "plcCodex.importReport",
-        "title": "PLC Codex: Abrir Relatório PLCopenXML",
-        "icon": "$(output)"
-      },
-      {
-        "command": "plcCodex.configurePanel",
-        "title": "PLC Codex: Configurar Tela e Mapeamento",
-        "icon": "$(settings-gear)"
-      },
-      {
-        "command": "plcCodex.addProject",
-        "title": "PLC Codex: Adicionar Pasta de Projeto",
-        "icon": "$(folder-opened)"
-      },
-      {
-        "command": "plcCodex.removeProject",
-        "title": "PLC Codex: Remover Projeto da Lista",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "plcCodex.stopAll",
-        "title": "PLC Codex: Parar Todos os PLCs",
-        "icon": "$(debug-stop)"
-      },
-      {
-        "command": "plcCodex.newProject",
-        "title": "PLC Codex: Novo Projeto PLC",
-        "icon": "$(new-folder)"
-      },
-      {
-        "command": "plcCodex.importXml",
-        "title": "PLC Codex: Importar PLCopenXML",
-        "icon": "$(cloud-download)"
-      },
-      {
-        "command": "plcCodex.selectProject",
-        "title": "PLC Codex: Selecionar Projeto",
-        "icon": "$(folder-opened)"
-      },
-      {
-        "command": "plcCodex.refresh",
-        "title": "Atualizar Projetos",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "plcCodex.playProject",
-        "title": "Executar PLC",
-        "icon": "$(play)"
-      },
-      {
-        "command": "plcCodex.openProjectPanel",
-        "title": "Abrir Comandos",
-        "icon": "$(open-preview)"
-      },
-      {
-        "command": "plcCodex.openProjectPid",
-        "title": "Abrir P&ID",
-        "icon": "$(type-hierarchy)"
-      },
-      {
-        "command": "plcCodex.refreshVariables",
-        "title": "Atualizar Variáveis",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "plcCodex.writeVariable",
-        "title": "Alterar Variável",
-        "icon": "$(edit)"
-      },
-      {
-        "command": "plcCodex.forceVariable",
-        "title": "Forçar Variável",
-        "icon": "$(lock)"
-      },
-      {
-        "command": "plcCodex.unforceVariable",
-        "title": "Remover Força",
-        "icon": "$(unlock)"
-      },
-      {
-        "command": "plcCodex.importXmlInto",
-        "title": "PLC Codex: Importar PLCopenXML no Projeto",
-        "icon": "$(cloud-download)"
-      },
-      {
-        "command": "plcCodex.exportXml",
-        "title": "PLC Codex: Exportar PLCopenXML",
-        "icon": "$(export)"
-      },
-      {
-        "command": "plcCodex.build",
-        "title": "PLC Codex: Build"
-      },
-      {
-        "command": "plcCodex.play",
-        "title": "PLC Codex: Play",
-        "icon": "$(play)"
-      },
-      {
-        "command": "plcCodex.stop",
-        "title": "PLC Codex: Stop",
-        "icon": "$(debug-stop)"
-      },
-      {
-        "command": "plcCodex.openPanel",
-        "title": "PLC Codex: Abrir Comandos",
-        "icon": "$(open-preview)"
-      },
-      {
-        "command": "plcCodex.openPid",
-        "title": "PLC Codex: Abrir P&ID",
-        "icon": "$(type-hierarchy)"
-      },
-      {
-        "command": "plcCodex.debugRun",
-        "title": "Execução ao vivo",
-        "icon": "$(debug-continue)"
-      },
-      {
-        "command": "plcCodex.debugPause",
-        "title": "Pausar PLC",
-        "icon": "$(debug-pause)"
-      },
-      {
-        "command": "plcCodex.debugStepScan",
-        "title": "Executar um scan",
-        "icon": "$(debug-step-over)"
-      },
-      {
-        "command": "plcCodex.debugLineMode",
-        "title": "Ativar passo de linha",
-        "icon": "$(debug-step-into)"
-      },
-      {
-        "command": "plcCodex.debugStepLine",
-        "title": "Executar próxima linha",
-        "icon": "$(debug-step-over)"
-      },
-      {
-        "command": "plcCodex.openRoutine",
-        "title": "Abrir rotina"
-      }
-    ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "plcCodex",
-          "title": "PLC Codex",
-          "icon": "media/plc.svg"
-        }
-      ]
-    },
-    "views": {
-      "plcCodex": [
-        {
-          "id": "plcCodex.runtimeControl",
-          "name": "PLCs em execução",
-          "type": "webview"
-        },
-        {
-          "id": "plcCodex.projects",
-          "name": "Projetos PLC"
-        },
-        {
-          "id": "plcCodex.liveDebug",
-          "name": "Depuração ao vivo",
-          "type": "webview"
-        }
-      ]
-    },
-    "menus": {
-      "view/title": [
-        {
-          "command": "plcCodex.addProject",
-          "when": "view == plcCodex.projects",
-          "group": "navigation@1"
-        },
-        {
-          "command": "plcCodex.newProject",
-          "when": "view == plcCodex.projects",
-          "group": "navigation@2"
-        },
-        {
-          "command": "plcCodex.importXml",
-          "when": "view == plcCodex.projects",
-          "group": "navigation@3"
-        },
-        {
-          "command": "plcCodex.selectProject",
-          "when": "view == plcCodex.projects",
-          "group": "navigation@4"
-        },
-        {
-          "command": "plcCodex.refresh",
-          "when": "view == plcCodex.projects",
-          "group": "navigation@5"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "plcCodex.configureProject",
-          "when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive || viewItem == plcProjectRunning)",
-          "group": "inline@4"
-        },
-        {
-          "command": "plcCodex.removeProject",
-          "when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive)",
-          "group": "inline@4"
-        },
-        {
-          "command": "plcCodex.playProject",
-          "when": "view == plcCodex.projects && viewItem == plcProjectStopped",
-          "group": "inline@1"
-        },
-        {
-          "command": "plcCodex.stop",
-          "when": "view == plcCodex.projects && viewItem == plcProjectRunning",
-          "group": "inline@1"
-        },
-        {
-          "command": "plcCodex.openProjectPanel",
-          "when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectRunning)",
-          "group": "inline@2"
-        },
-        {
-          "command": "plcCodex.openProjectPid",
-          "when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectRunning)",
-          "group": "inline@3"
-        },
-        {
-          "command": "plcCodex.playProject",
-          "when": "view == plcCodex.projects && viewItem == plcProjectInactive",
-          "group": "inline@1"
-        },
-        {
-          "command": "plcCodex.stop",
-          "when": "view == plcCodex.processes && viewItem == plcRunningProcess",
-          "group": "inline@1"
-        },
-        {
-          "command": "plcCodex.openProjectPanel",
-          "when": "view == plcCodex.processes && viewItem == plcRunningProcess",
-          "group": "inline@2"
-        },
-        {
-          "command": "plcCodex.openProjectPid",
-          "when": "view == plcCodex.processes && viewItem == plcRunningProcess",
-          "group": "inline@3"
-        },
-        {
-          "command": "plcCodex.writeVariable",
-          "when": "view == plcCodex.variables && (viewItem == plcVariableWritable || viewItem == plcVariableForced)",
-          "group": "inline@1"
-        },
-        {
-          "command": "plcCodex.forceVariable",
-          "when": "view == plcCodex.variables && viewItem == plcVariableWritable",
-          "group": "inline@2"
-        },
-        {
-          "command": "plcCodex.unforceVariable",
-          "when": "view == plcCodex.variables && viewItem == plcVariableForced",
-          "group": "inline@2"
-        },
-        {
-          "command": "plcCodex.exportXml",
-          "when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive || viewItem == plcProjectRunning)",
-          "group": "inline@6"
-        },
-        {
-          "command": "plcCodex.importXmlInto",
-          "when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive || viewItem == plcProjectRunning)",
-          "group": "inline@5"
-        }
-      ]
-    },
-    "languages": [
-      {
-        "id": "iec-st",
-        "aliases": [
-          "Structured Text",
-          "ST"
-        ],
-        "extensions": [
-          ".st"
-        ]
-      }
-    ],
-    "grammars": [
-      {
-        "language": "iec-st",
-        "scopeName": "source.iec-st",
-        "path": "./syntaxes/st.tmLanguage.json"
-      }
-    ]
-  },
-  "scripts": {
-    "test": "node --check extension.js",
-    "package": "npx @vscode/vsce package --no-dependencies"
-  },
-  "devDependencies": {
-    "@vscode/vsce": "2.26.1"
-  },
-  "overrides": {
-    "cheerio": "1.0.0-rc.12"
-  }
+	"name": "plc-codex",
+	"displayName": "PLC Codex Simulator",
+	"description": "Compila e executa projetos ST IEC 61131-3 locais.",
+	"version": "0.25.0",
+	"publisher": "plc-codex",
+	"engines": {
+		"vscode": "^1.85.0"
+	},
+	"categories": [
+		"Programming Languages",
+		"Other"
+	],
+	"activationEvents": [
+		"onView:plcCodex.projects",
+		"onView:plcCodex.runtimeControl",
+		"onView:plcCodex.liveDebug",
+		"onCommand:plcCodex.selectProject",
+		"onCommand:plcCodex.playProject",
+		"onCommand:plcCodex.refreshVariables",
+		"onCommand:plcCodex.writeVariable",
+		"onCommand:plcCodex.forceVariable",
+		"onCommand:plcCodex.unforceVariable",
+		"onCommand:plcCodex.exportXml",
+		"onCommand:plcCodex.newProject",
+		"onCommand:plcCodex.importXml",
+		"onCommand:plcCodex.addProject",
+		"onCommand:plcCodex.removeProject",
+		"onCommand:plcCodex.stopAll",
+		"onCommand:plcCodex.configureProject",
+		"onCommand:plcCodex.editMapping",
+		"onCommand:plcCodex.editPid",
+		"onCommand:plcCodex.configurePanel",
+		"onCommand:plcCodex.build",
+		"onCommand:plcCodex.play",
+		"onCommand:plcCodex.stop",
+		"onCommand:plcCodex.openPanel",
+		"onCommand:plcCodex.openPid",
+		"onCommand:plcCodex.openProjectPid",
+		"onCommand:plcCodex.runScenarios",
+		"onCommand:plcCodex.importReport"
+	],
+	"main": "./extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "plcCodex.configureProject",
+				"title": "PLC Codex: Configurar Projeto",
+				"icon": "$(settings)"
+			},
+			{
+				"command": "plcCodex.editMapping",
+				"title": "PLC Codex: Mapear Tags nas Telas",
+				"icon": "$(layout)"
+			},
+			{
+				"command": "plcCodex.editPid",
+				"title": "PLC Codex: Editar P&ID Visualmente",
+				"icon": "$(symbol-structure)"
+			},
+			{
+				"command": "plcCodex.runScenarios",
+				"title": "PLC Codex: Executar Cenários de Teste",
+				"icon": "$(beaker)"
+			},
+			{
+				"command": "plcCodex.importReport",
+				"title": "PLC Codex: Abrir Relatório PLCopenXML",
+				"icon": "$(output)"
+			},
+			{
+				"command": "plcCodex.configurePanel",
+				"title": "PLC Codex: Configurar Tela e Mapeamento",
+				"icon": "$(settings-gear)"
+			},
+			{
+				"command": "plcCodex.addProject",
+				"title": "PLC Codex: Adicionar Pasta de Projeto",
+				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "plcCodex.removeProject",
+				"title": "PLC Codex: Remover Projeto da Lista",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "plcCodex.stopAll",
+				"title": "PLC Codex: Parar Todos os PLCs",
+				"icon": "$(debug-stop)"
+			},
+			{
+				"command": "plcCodex.newProject",
+				"title": "PLC Codex: Novo Projeto PLC",
+				"icon": "$(new-folder)"
+			},
+			{
+				"command": "plcCodex.importXml",
+				"title": "PLC Codex: Importar PLCopenXML",
+				"icon": "$(cloud-download)"
+			},
+			{
+				"command": "plcCodex.selectProject",
+				"title": "PLC Codex: Selecionar Projeto",
+				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "plcCodex.refresh",
+				"title": "Atualizar Projetos",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "plcCodex.playProject",
+				"title": "Executar PLC",
+				"icon": "$(play)"
+			},
+			{
+				"command": "plcCodex.openProjectPanel",
+				"title": "Abrir Comandos",
+				"icon": "$(open-preview)"
+			},
+			{
+				"command": "plcCodex.openProjectPid",
+				"title": "Abrir P&ID",
+				"icon": "$(type-hierarchy)"
+			},
+			{
+				"command": "plcCodex.refreshVariables",
+				"title": "Atualizar Variáveis",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "plcCodex.writeVariable",
+				"title": "Alterar Variável",
+				"icon": "$(edit)"
+			},
+			{
+				"command": "plcCodex.forceVariable",
+				"title": "Forçar Variável",
+				"icon": "$(lock)"
+			},
+			{
+				"command": "plcCodex.unforceVariable",
+				"title": "Remover Força",
+				"icon": "$(unlock)"
+			},
+			{
+				"command": "plcCodex.importXmlInto",
+				"title": "PLC Codex: Importar PLCopenXML no Projeto",
+				"icon": "$(cloud-download)"
+			},
+			{
+				"command": "plcCodex.exportXml",
+				"title": "PLC Codex: Exportar PLCopenXML",
+				"icon": "$(export)"
+			},
+			{
+				"command": "plcCodex.build",
+				"title": "PLC Codex: Build"
+			},
+			{
+				"command": "plcCodex.play",
+				"title": "PLC Codex: Play",
+				"icon": "$(play)"
+			},
+			{
+				"command": "plcCodex.stop",
+				"title": "PLC Codex: Stop",
+				"icon": "$(debug-stop)"
+			},
+			{
+				"command": "plcCodex.openPanel",
+				"title": "PLC Codex: Abrir Comandos",
+				"icon": "$(open-preview)"
+			},
+			{
+				"command": "plcCodex.openPid",
+				"title": "PLC Codex: Abrir P&ID",
+				"icon": "$(type-hierarchy)"
+			},
+			{
+				"command": "plcCodex.debugRun",
+				"title": "Execução ao vivo",
+				"icon": "$(debug-continue)"
+			},
+			{
+				"command": "plcCodex.debugPause",
+				"title": "Pausar PLC",
+				"icon": "$(debug-pause)"
+			},
+			{
+				"command": "plcCodex.debugStepScan",
+				"title": "Executar um scan",
+				"icon": "$(debug-step-over)"
+			},
+			{
+				"command": "plcCodex.debugLineMode",
+				"title": "Ativar passo de linha",
+				"icon": "$(debug-step-into)"
+			},
+			{
+				"command": "plcCodex.debugStepLine",
+				"title": "Executar próxima linha",
+				"icon": "$(debug-step-over)"
+			},
+			{
+				"command": "plcCodex.openRoutine",
+				"title": "Abrir rotina"
+			}
+		],
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "plcCodex",
+					"title": "PLC Codex",
+					"icon": "media/plc.svg"
+				}
+			]
+		},
+		"views": {
+			"plcCodex": [
+				{
+					"id": "plcCodex.runtimeControl",
+					"name": "PLCs em execução",
+					"type": "webview"
+				},
+				{
+					"id": "plcCodex.projects",
+					"name": "Projetos PLC"
+				},
+				{
+					"id": "plcCodex.liveDebug",
+					"name": "Depuração ao vivo",
+					"type": "webview"
+				}
+			]
+		},
+		"menus": {
+			"view/title": [
+				{
+					"command": "plcCodex.addProject",
+					"when": "view == plcCodex.projects",
+					"group": "navigation@1"
+				},
+				{
+					"command": "plcCodex.newProject",
+					"when": "view == plcCodex.projects",
+					"group": "navigation@2"
+				},
+				{
+					"command": "plcCodex.importXml",
+					"when": "view == plcCodex.projects",
+					"group": "navigation@3"
+				},
+				{
+					"command": "plcCodex.selectProject",
+					"when": "view == plcCodex.projects",
+					"group": "navigation@4"
+				},
+				{
+					"command": "plcCodex.refresh",
+					"when": "view == plcCodex.projects",
+					"group": "navigation@5"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "plcCodex.configureProject",
+					"when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive || viewItem == plcProjectRunning)",
+					"group": "inline@4"
+				},
+				{
+					"command": "plcCodex.removeProject",
+					"when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive)",
+					"group": "inline@4"
+				},
+				{
+					"command": "plcCodex.playProject",
+					"when": "view == plcCodex.projects && viewItem == plcProjectStopped",
+					"group": "inline@1"
+				},
+				{
+					"command": "plcCodex.stop",
+					"when": "view == plcCodex.projects && viewItem == plcProjectRunning",
+					"group": "inline@1"
+				},
+				{
+					"command": "plcCodex.openProjectPanel",
+					"when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectRunning)",
+					"group": "inline@2"
+				},
+				{
+					"command": "plcCodex.openProjectPid",
+					"when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectRunning)",
+					"group": "inline@3"
+				},
+				{
+					"command": "plcCodex.playProject",
+					"when": "view == plcCodex.projects && viewItem == plcProjectInactive",
+					"group": "inline@1"
+				},
+				{
+					"command": "plcCodex.stop",
+					"when": "view == plcCodex.processes && viewItem == plcRunningProcess",
+					"group": "inline@1"
+				},
+				{
+					"command": "plcCodex.openProjectPanel",
+					"when": "view == plcCodex.processes && viewItem == plcRunningProcess",
+					"group": "inline@2"
+				},
+				{
+					"command": "plcCodex.openProjectPid",
+					"when": "view == plcCodex.processes && viewItem == plcRunningProcess",
+					"group": "inline@3"
+				},
+				{
+					"command": "plcCodex.writeVariable",
+					"when": "view == plcCodex.variables && (viewItem == plcVariableWritable || viewItem == plcVariableForced)",
+					"group": "inline@1"
+				},
+				{
+					"command": "plcCodex.forceVariable",
+					"when": "view == plcCodex.variables && viewItem == plcVariableWritable",
+					"group": "inline@2"
+				},
+				{
+					"command": "plcCodex.unforceVariable",
+					"when": "view == plcCodex.variables && viewItem == plcVariableForced",
+					"group": "inline@2"
+				},
+				{
+					"command": "plcCodex.exportXml",
+					"when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive || viewItem == plcProjectRunning)",
+					"group": "inline@6"
+				},
+				{
+					"command": "plcCodex.importXmlInto",
+					"when": "view == plcCodex.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive || viewItem == plcProjectRunning)",
+					"group": "inline@5"
+				}
+			]
+		},
+		"languages": [
+			{
+				"id": "iec-st",
+				"aliases": [
+					"Structured Text",
+					"ST"
+				],
+				"extensions": [
+					".st"
+				]
+			}
+		],
+		"grammars": [
+			{
+				"language": "iec-st",
+				"scopeName": "source.iec-st",
+				"path": "./syntaxes/st.tmLanguage.json"
+			}
+		]
+	},
+	"scripts": {
+		"test": "node --check extension.js",
+		"package": "npx @vscode/vsce package --no-dependencies"
+	},
+	"devDependencies": {
+		"@vscode/vsce": "2.26.1"
+	},
+	"overrides": {
+		"cheerio": "1.0.0-rc.12"
+	},
+	"__metadata": {
+		"installedTimestamp": 1787357303575,
+		"targetPlatform": "undefined",
+		"size": 385539
+	}
 }

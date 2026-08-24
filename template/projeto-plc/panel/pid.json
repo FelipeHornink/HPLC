@@ -13,5 +13,14 @@
     {"tag":"OutputsDigitais.LigaExaustor","label":"M-701 Exaustor","x":78,"y":18,"unit":""},
     {"tag":"PressaoJusante.ValorEngenharia","label":"Pressão jusante","x":86,"y":51,"unit":"bar","precision":2},
     {"tag":"StatusMaquina.EstadoAtual","label":"Estado da máquina","x":82,"y":82,"unit":""}
-  ]
+  ],
+  "shapes": [
+    {"id":"pipe_succao","type":"pipe","x":8,"y":51,"width":10,"height":2.5,"rotation":0},
+    {"id":"valve_succao","type":"valve","x":18,"y":51,"width":5,"height":5,"rotation":0,"tag":"OutputsDigitais.AbreValvulaSucao","onColor":"#4d7558","offColor":"#8a97a0","label":"XV-700"},
+    {"id":"pipe_compressor","type":"pipe","x":28,"y":51,"width":12,"height":2.5,"rotation":0},
+    {"id":"motor_principal","type":"motor","x":39,"y":51,"width":11,"height":11,"rotation":0,"tag":"OutputsDigitais.LigaMotorPrincipal","onColor":"#4d7558","offColor":"#8a97a0","label":"M-700"},
+    {"id":"pipe_descarga","type":"pipe","x":50,"y":51,"width":18,"height":2.5,"rotation":0},
+    {"id":"exaustor","type":"pump","x":78,"y":40,"width":7,"height":7,"rotation":0,"tag":"OutputsDigitais.LigaExaustor","onColor":"#4d7558","offColor":"#8a97a0","label":"M-701"}
+  ],
+  "_comentario_shapes": "Exemplo de formas visuais (válvula/tubulação/motor/bomba/vaso/rótulo) — edite com 'PLC Codex: Editar Tela P&ID' para arrastar, redimensionar e vincular tags visualmente, sem editar este JSON à mão."
 }
