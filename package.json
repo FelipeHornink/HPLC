@@ -2,6 +2,14 @@
   "name": "plc-codex",
   "displayName": "PLC Codex Simulator",
   "description": "Compila e executa projetos ST IEC 61131-3 locais.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FelipeHornink/HPLC.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FelipeHornink/HPLC/issues"
+  },
   "version": "0.28.1",
   "publisher": "plc-codex",
   "engines": {

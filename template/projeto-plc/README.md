@@ -14,7 +14,7 @@ programs/    Main, responsável pela ordem fixa do scan
 routines/    13 rotinas funcionais da especificação Automacao.pdf
 panel/       bancada de comandos e visão P&ID
 tests/       cenários de partida e trip
-runtime/     compilação matiec, servidor e exportador
+runtime/     compilação STruC++, servidor e exportador
 export/      PLCopenXML e ST consolidado gerados
 ```
 
