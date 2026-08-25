@@ -11,10 +11,12 @@ programa as sobrescreve.
 ## Áreas
 
 - `monitoring`: faixa superior para estados e variáveis internas de operação.
-- `ihm`: comandos e valores mostrados no clone da IHM.
-- `panel`: DI de botoeiras/chaves da porta e DO de sinaleiros.
-- `interface`: DI/AI recebidos do cliente e DO/AO enviados ao cliente.
-- `field`: sensores DI/AI e atuadores DO/AO instalados no equipamento.
+- `ihm`: comandos e valores mostrados no clone da IHM (a aba *Simulação* liga o
+  modelo e o retorno simulado de cada objeto).
+- `panel`: botoeiras e chaves da porta, inclusive Local/Remoto.
+- `interface`: sinais do cliente — comando por fio do DCS (DI-16..DI-19) e o permissivo.
+- `field`: DI de campo (fins de curso, retornos), DO/AO do equipamento e os
+  instrumentos analógicos.
 
 ## Widgets
 
@@ -50,6 +52,43 @@ Exemplo:
   "writable": true
 }
 ```
+
+## Simulação por ponto
+
+Cada item pode declarar o vínculo de simulação daquele ponto:
+
+```json
+{
+  "tag": "InstrumentosAnalogicos[1].ValorEngenharia",
+  "label": "PIT Sucção",
+  "kind": "number",
+  "writable": false,
+  "simulation_flag": {
+    "flag": "InstrumentosAnalogicos[1].HabilitaSimulacao",
+    "value": "InstrumentosAnalogicos[1].ValorSimulado"
+  }
+}
+```
+
+- `flag` — liga/desliga a simulação **daquele** ponto. A marca ao lado do
+  rótulo mostra o estado (`SIM` no campo, `SIMULADO` no modelo) e **é o
+  comando**: clicar alterna.
+- `value` — o que o operador edita enquanto o ponto está simulado. Numa entrada
+  é o valor usado no lugar do canal; numa saída é o valor forçado. A linha
+  troca de alvo sozinha: simulada, ela escreve em `value`; no campo, volta para
+  a `tag`.
+
+- `readonly` — a marca só **anuncia** que o ponto está simulado, sem comandar. É o que o
+  quadro de monitoramento usa: ligar ou desligar a simulação é decisão do quadro da entrada.
+
+Ponto simulável (com `value` e sem `readonly`) mostra **os dois valores lado a lado** — o
+simulado, que o operador escolhe, e o físico/lógico. O destacado é o que o programa está
+usando naquele instante.
+
+Item sem `simulation_flag` não tem marca — nada é adivinhado pelo nome da tag.
+No modo **Editar tela** os dois campos aparecem nas propriedades do item, e o
+botão *vincular simulação* preenche a partir das convenções do projeto
+(`<objeto>.HabilitaSimulacao` / `SimuHabilitaEntradaDigital.<campo>`).
 
 A `tag` precisa existir em **Depuração ao vivo**. Se o programa escrever na
 mesma variável a cada scan, a escrita manual será visível imediatamente e depois

@@ -25,9 +25,39 @@ def existe(*nomes):
     return [nome for nome in nomes if nome in variaveis]
 
 
+def vinculo_sim(tag):
+    """Bloco "simulation_flag" do item, quando o catalogo tem o par do ponto.
+
+    Duas convencoes do projeto: objeto de processo guarda HabilitaSimulacao (e
+    ValorSimulado/RetornoSimuladoLigado) ao lado do valor; canal de IO tem o par
+    SimuHabilita<Estrutura>.<campo> / Simu<Estrutura>.<campo>. Sem par, o item
+    sai sem vinculo e a tela nao mostra marca -- adivinhar pelo nome em tempo de
+    execucao foi justamente o que impedia configurar a flag.
+    """
+    if "." not in tag:
+        return None
+    base, campo = tag.rsplit(".", 1)
+    irmao = base + ".HabilitaSimulacao"
+    if irmao in variaveis:
+        vinculo = {"flag": irmao}
+        for nome in (base + ".ValorSimulado", base + ".RetornoSimuladoLigado"):
+            if nome in variaveis:
+                vinculo["value"] = nome
+        return vinculo
+    pares = {"InputsDigitais": ("SimuHabilitaEntradaDigital", "SimuEntradaDigital"),
+             "OutputsDigitais": ("SimuHabilitaSaidaDigital", "SimuSaidaDigital")}
+    par = pares.get(base)
+    if par and f"{par[0]}.{campo}" in variaveis:
+        return {"flag": f"{par[0]}.{campo}", "value": f"{par[1]}.{campo}"}
+    return None
+
+
 def item(tag, rotulo, tipo, **extra):
     base = {"tag": tag, "label": rotulo, "kind": tipo, "writable": tipo != "lamp"}
     base.update(extra)
+    vinculo = base.get("simulation_flag") or vinculo_sim(tag)
+    if vinculo:
+        base["simulation_flag"] = vinculo
     return base
 
 

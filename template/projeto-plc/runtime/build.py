@@ -86,55 +86,9 @@ for body in global_bodies:
             data_type = match.group(2).split(":=", 1)[0].strip()
             declarations.append((match.group(1), data_type))
 
-POU_HEADER = re.compile(r"^\s*(?:PROGRAM|FUNCTION_BLOCK|FUNCTION)\b", re.I)
-POU_FOOTER = re.compile(r"^\s*END_(?:PROGRAM|FUNCTION_BLOCK|FUNCTION)\b", re.I)
-DECL_HEADER = re.compile(r"^\s*VAR(?:_INPUT|_OUTPUT|_IN_OUT|_TEMP|_STAT|_EXTERNAL|_GLOBAL)?\b", re.I)
-DECL_FOOTER = re.compile(r"^\s*END_VAR\b", re.I)
-
-
-# Nomes que a POU que vai receber o VAR_EXTERNAL declara por conta propria.
-# Vale so a primeira POU do arquivo, que e onde a injecao acontece; POU seguinte
-# do mesmo arquivo nao pode restringir o que a primeira enxerga.
-def declared_locally(source_lines):
-    names = set()
-    inside_pou = False
-    inside_block = False
-    for line in source_lines:
-        clean = re.sub(r"\(\*.*?\*\)", "", line).strip()
-        if POU_FOOTER.match(clean):
-            break
-        if POU_HEADER.match(clean):
-            if inside_pou:
-                break
-            inside_pou = True
-            continue
-        if not inside_pou:
-            continue
-        if DECL_FOOTER.match(clean):
-            inside_block = False
-            continue
-        if DECL_HEADER.match(clean):
-            inside_block = True
-            continue
-        if not inside_block:
-            continue
-        match = re.match(r"([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:\s*[^=]", clean)
-        if match:
-            names.update(part.strip().lower() for part in match.group(1).split(","))
-    return names
-
-
-# A norma proibe o mesmo identificador duas vezes no escopo da POU, e o STruC++
-# aborta a compilacao. Quando a POU declara o nome, e a declaracao local que vale
-# no corpo, por isso a global homonima sai do VAR_EXTERNAL em vez de renomear
-# qualquer um dos dois lados.
-def external_block(skip=frozenset()):
-    kept = [item for item in declarations if item[0].lower() not in skip]
-    if not kept:
-        return []
-    return ["VAR_EXTERNAL", *(
-        f"    {name} : {data_type};" for name, data_type in kept
-    ), "END_VAR"]
+external_lines = ["VAR_EXTERNAL", *(
+    f"    {name} : {data_type};" for name, data_type in declarations
+), "END_VAR"]
 
 unit_lines = []
 line_map = {}
@@ -151,20 +105,51 @@ def append(line="", source=None, source_line=None, kind=None):
         }
 
 
+POU_HEADER = re.compile(r"^\s*(?:PROGRAM|FUNCTION_BLOCK|FUNCTION)\b", re.I)
+
+
+ROUTINE_MARK = re.compile(r"^\s*\(\*\s*@ROUTINE\s+([^*]+?)\s*\*\)\s*$")
+
+
+def resolve_routine(name):
+    if "routines" not in active_directories:
+        raise SystemExit("Main referencia rotinas, mas 'routines' não está em source_directories")
+    routine = SOURCE_ROOT / "routines" / name.strip()
+    if not routine.is_file():
+        raise SystemExit(f"Rotina referenciada não encontrada: {routine}")
+    return routine
+
+
+def append_routine(routine, stack=()):
+    """Expande uma rotina, e as rotinas que ela mesma referencia.
+
+    Recursivo para o Main poder ter exatamente os 13 steps do padrão HBR: o que
+    é sub-etapa (segurança dentro da Decisão de Comandos, publicação Modbus
+    dentro da última rotina, saída do modelo dentro da Rotina 3) mora no arquivo
+    do step que a contém, sem virar step novo. O mapa de fontes continua por
+    arquivo, então a barra de simulação e a depuração seguem apontando certo.
+    """
+    if routine in stack:
+        caminho = " -> ".join(r.name for r in stack + (routine,))
+        raise SystemExit(f"Ciclo de @ROUTINE: {caminho}")
+    if len(stack) > 4:
+        raise SystemExit(f"@ROUTINE aninhado demais em {routine.name} (limite 4 níveis)")
+    for number, line in enumerate(routine.read_text(encoding="utf-8").splitlines(), 1):
+        mark = ROUTINE_MARK.match(line)
+        if mark:
+            append_routine(resolve_routine(mark.group(1)), stack + (routine,))
+            append()
+            continue
+        append(line, routine, number, "routines")
+
+
 def append_source(source, kind, inject_external=False):
     source_lines = source.read_text(encoding="utf-8").splitlines()
-    external_lines = external_block(declared_locally(source_lines)) if inject_external else []
     injected = False
     for number, line in enumerate(source_lines, 1):
-        routine_match = re.match(r"^\s*\(\*\s*@ROUTINE\s+([^*]+?)\s*\*\)\s*$", line)
+        routine_match = ROUTINE_MARK.match(line)
         if routine_match:
-            if "routines" not in active_directories:
-                raise SystemExit("Main referencia rotinas, mas 'routines' não está em source_directories")
-            routine = SOURCE_ROOT / "routines" / routine_match.group(1).strip()
-            if not routine.is_file():
-                raise SystemExit(f"Rotina referenciada não encontrada: {routine}")
-            for routine_number, routine_line in enumerate(routine.read_text(encoding="utf-8").splitlines(), 1):
-                append(routine_line, routine, routine_number, "routines")
+            append_routine(resolve_routine(routine_match.group(1)))
             append()
             continue
         append(line, source, number, kind)
