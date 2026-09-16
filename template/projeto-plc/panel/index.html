@@ -1,13 +1,3 @@
-function marcaSim(item,chip){
-  if(!chip)return;
-  const ligada=simLigada(item),alvoDaMarca=alvoSim(item),comandavel=chip.tagName==='BUTTON';
-  chip.textContent=ligada?'SIMULADO':'SIM';
-  chip.className='chip-sim'+(ligada?'':' off');
-  chip.title=(ligada?'Ponto simulado: o programa está usando o valor simulado.'
-                   :'Ponto no campo: o valor simulado está acompanhando o real.')
-    +(comandavel?' Clique para alternar ('+alvoDaMarca+').'
-                :' Ligar/desligar é no quadro da entrada, não aqui.');
-}
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -149,11 +139,13 @@ function alvoSim(item){const s=simDoItem(item);return s&&s.flag?s.flag:null}
    que ninguem mais le. */
 function marcaSim(item,chip){
   if(!chip)return;
-  const ligada=simLigada(item),alvoDaMarca=alvoSim(item);
+  const ligada=simLigada(item),alvoDaMarca=alvoSim(item),comandavel=chip.tagName==='BUTTON';
   chip.textContent=ligada?'SIMULADO':'SIM';
   chip.className='chip-sim'+(ligada?'':' off');
-  chip.title=(ligada?'Ponto simulado: valor escolhido, nao o do campo.'
-                   :'Ponto no campo.')+(alvoDaMarca?' Clique para alternar ('+alvoDaMarca+').':'');
+  chip.title=(ligada?'Ponto simulado: o programa está usando o valor simulado.'
+                   :'Ponto no campo: o valor simulado está acompanhando o real.')
+    +(comandavel?' Clique para alternar ('+alvoDaMarca+').'
+                :' Ligar/desligar é no quadro da entrada, não aqui.');
 }
 function renderItem(item,parent){
   const sim=simDoItem(item),par=Boolean(sim&&sim.value&&!sim.readonly);
