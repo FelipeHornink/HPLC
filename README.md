@@ -293,6 +293,10 @@ for t in tests/*.py; do python3 "$t"; done
 for t in tests/test_*.js; do node "$t"; done   # the *_browser tests need Playwright
 ```
 
+## Acknowledgements
+
+HPLC was developed with the help of [Claude Code](https://claude.com/claude-code).
+
 ## License
 
 MIT. See [LICENSE](LICENSE). STruC++ is a separate project under GPL-3.0 with a runtime
