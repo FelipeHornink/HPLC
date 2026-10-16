@@ -18,8 +18,9 @@ original project or as portable logic for any IEC IDE.
 
 <sub>The HMI of the water-tank example running in HPLC (time-lapse, 5×).</sub>
 
-In VS Code: the HPLC explorer on the left, the HMI on top and the live code below, with
-the lines executed in the last scan highlighted and the values next to the code.
+In VS Code: the HPLC explorer on the left, the HMI on top and the live code below (with
+the lines executed in the last scan highlighted and the values next to the code), and AI
+assistants open in the terminal on the right.
 
 ![HPLC in VS Code: explorer, HMI and live code](docs/images/vscode.png)
 
