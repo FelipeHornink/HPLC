@@ -14,9 +14,9 @@ It reads **PLCopenXML** exported from your PLC IDE, so you can test the real pro
 from the machine. It writes PLCopenXML back, either as a byte-faithful update of the
 original project or as portable logic for any IEC IDE.
 
-![HPLC running the water-tank example: the P&ID updates live as the pump fills and the valve drains the tank](docs/images/pid-animated.png)
+![HPLC HMI running the water-tank example: tank state, level, pump and valve update live](docs/images/hmi-animated.png)
 
-<sub>The water-tank example running in HPLC (time-lapse, 5×).</sub>
+<sub>The HMI of the water-tank example running in HPLC (time-lapse, 5×).</sub>
 
 > **Status:** HPLC is used daily for engineering and commissioning tests. It is a
 > **simulator for engineering**. It is not a controller, and it must never drive real
@@ -177,7 +177,7 @@ Your ST sources stay in the vendor's form, so you can copy them back into the ID
 
 | HMI | P&ID |
 |---|---|
-| ![HMI page](docs/images/hmi.png) | ![P&ID page](docs/images/pid.png) |
+| ![HMI page](docs/images/hmi.png) | ![P&ID page, live (time-lapse)](docs/images/pid-animated.png) |
 
 **Variables and trends** lists every variable in the program. You can write to any of
 them from there, and starred variables are plotted live:
