@@ -1,0 +1,19 @@
+name: "Starter project scenarios"
+scenarios:
+  - name: "Start runs the motor"
+    steps:
+      - set: StopButton
+        value: true
+      - pulse: HmiStart
+      - wait_ms: 100
+      - expect: MotorContactor
+        value: true
+  - name: "Stop button stops the motor"
+    steps:
+      - set: StopButton
+        value: false
+      - wait_ms: 100
+      - expect: MotorContactor
+        value: false
+      - set: StopButton
+        value: true

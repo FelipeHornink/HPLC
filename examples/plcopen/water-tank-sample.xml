@@ -1,0 +1,574 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <fileHeader companyName="HPLC" productName="HPLC" productVersion="0.1" creationDateTime="2026-10-16T20:43:42.648002+00:00" />
+  <contentHeader name="Water_Tank_Demo" modificationDateTime="2026-10-16T20:43:42.648017+00:00">
+    <coordinateInfo>
+      <fbd>
+        <scaling x="1" y="1" />
+      </fbd>
+      <ld>
+        <scaling x="1" y="1" />
+      </ld>
+      <sfc>
+        <scaling x="1" y="1" />
+      </sfc>
+    </coordinateInfo>
+  </contentHeader>
+  <types>
+    <dataTypes>
+      <dataType name="ST_DigitalInputs">
+        <baseType>
+          <struct>
+            <variable name="StartButton">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="StopButton">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="AutoSelector">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="PumpFeedback">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="ValveOpenFeedback">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </struct>
+        </baseType>
+      </dataType>
+      <dataType name="ST_DigitalOutputs">
+        <baseType>
+          <struct>
+            <variable name="PumpRun">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="ValveOpen">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="HighAlarmLamp">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="LowAlarmLamp">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </struct>
+        </baseType>
+      </dataType>
+      <dataType name="ST_AnalogInputs">
+        <baseType>
+          <struct>
+            <variable name="LevelRaw">
+              <type>
+                <INT />
+              </type>
+            </variable>
+          </struct>
+        </baseType>
+      </dataType>
+      <dataType name="ST_HmiCommands">
+        <baseType>
+          <struct>
+            <variable name="StartCmd">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="StopCmd">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="ResetCmd">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="ManualPump">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="ManualValve">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </struct>
+        </baseType>
+      </dataType>
+      <dataType name="ST_TankStatus">
+        <baseType>
+          <struct>
+            <variable name="State">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="AutoMode">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="Running">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="PumpRunning">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="PumpFault">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="ValveIsOpen">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="ValveFault">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="HighAlarm">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="LowAlarm">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </struct>
+        </baseType>
+      </dataType>
+    </dataTypes>
+    <pous>
+      <pou name="FB_Pump" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="AutoCmd">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="ManualCmd">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="ManualMode">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="Permissive">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="Feedback">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="Reset">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </inputVars>
+          <outputVars>
+            <variable name="Run">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="Running">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="Fault">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </outputVars>
+          <localVars>
+            <variable name="FeedbackTimer">
+              <type>
+                <derived name="TON" />
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">IF Reset THEN
+    Fault := FALSE;
+END_IF;
+IF ManualMode THEN
+    Run := ManualCmd AND Permissive AND NOT Fault;
+ELSE
+    Run := AutoCmd AND Permissive AND NOT Fault;
+END_IF;
+FeedbackTimer(IN := Run AND NOT Feedback, PT := T#2s);
+IF FeedbackTimer.Q THEN
+    Fault := TRUE;
+END_IF;
+Running := Run AND Feedback;</xhtml>
+          </ST>
+        </body>
+      </pou>
+      <pou name="FB_Valve" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="AutoCmd">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="ManualCmd">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="ManualMode">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="Permissive">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="OpenFeedback">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="Reset">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </inputVars>
+          <outputVars>
+            <variable name="Open">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="IsOpen">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="Fault">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </outputVars>
+          <localVars>
+            <variable name="TravelTimer">
+              <type>
+                <derived name="TON" />
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">IF Reset THEN
+    Fault := FALSE;
+END_IF;
+IF ManualMode THEN
+    Open := ManualCmd AND Permissive AND NOT Fault;
+ELSE
+    Open := AutoCmd AND Permissive AND NOT Fault;
+END_IF;
+TravelTimer(IN := Open AND NOT OpenFeedback, PT := T#3s);
+IF TravelTimer.Q THEN
+    Fault := TRUE;
+END_IF;
+IsOpen := OpenFeedback;</xhtml>
+          </ST>
+        </body>
+      </pou>
+      <pou name="Main" pouType="program">
+        <interface>
+          <localVars>
+            <variable name="Pump">
+              <type>
+                <derived name="FB_Pump" />
+              </type>
+            </variable>
+            <variable name="Valve">
+              <type>
+                <derived name="FB_Valve" />
+              </type>
+            </variable>
+            <variable name="StartEdge">
+              <type>
+                <derived name="R_TRIG" />
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">(* Routine 1 - field model used only on the bench. Disable SimEnable to drive
+   the inputs by hand from the panel. *)
+IF SimEnable THEN
+    Inputs.PumpFeedback := Outputs.PumpRun;
+    Inputs.ValveOpenFeedback := Outputs.ValveOpen;
+    IF Outputs.PumpRun THEN
+        SimLevel := SimLevel + SimInflowRate * SimScanSeconds;
+    END_IF;
+    IF Outputs.ValveOpen THEN
+        SimLevel := SimLevel - SimOutflowRate * SimScanSeconds;
+    END_IF;
+    IF SimLevel &lt; 0.0 THEN
+        SimLevel := 0.0;
+    END_IF;
+    IF SimLevel &gt; 100.0 THEN
+        SimLevel := 100.0;
+    END_IF;
+    Analog.LevelRaw := REAL_TO_INT(SimLevel * 100.0);
+END_IF;
+(* Routine 2 - input scaling and operator mode. *)
+Level := INT_TO_REAL(Analog.LevelRaw) / 100.0;
+IF Level &lt; 0.0 THEN
+    Level := 0.0;
+END_IF;
+IF Level &gt; 100.0 THEN
+    Level := 100.0;
+END_IF;
+Status.AutoMode := Inputs.AutoSelector;
+(* Routine 3 - level alarms with 1 % hysteresis. *)
+IF Level &gt;= HighAlarmLimit THEN
+    Status.HighAlarm := TRUE;
+ELSIF Level &lt; HighAlarmLimit - 1.0 THEN
+    Status.HighAlarm := FALSE;
+END_IF;
+IF Level &lt;= LowAlarmLimit THEN
+    Status.LowAlarm := TRUE;
+ELSIF Level &gt; LowAlarmLimit + 1.0 THEN
+    Status.LowAlarm := FALSE;
+END_IF;
+(* Routine 4 - Auto cycle: Idle (0) -&gt; Filling (1) -&gt; Draining (2) -&gt; Filling ...
+   Start (HMI or push button) starts the cycle; Stop, Manual mode or an
+   equipment fault returns to Idle. *)
+StartEdge(CLK := Hmi.StartCmd OR Inputs.StartButton);
+IF Hmi.StopCmd OR NOT Inputs.StopButton OR NOT Status.AutoMode
+   OR Status.PumpFault OR Status.ValveFault THEN
+    Status.Running := FALSE;
+ELSIF StartEdge.Q THEN
+    Status.Running := TRUE;
+END_IF;
+
+CASE Status.State OF
+    0: (* Idle *)
+        IF Status.Running THEN
+            IF Level &lt; FillTarget THEN
+                Status.State := 1;
+            ELSE
+                Status.State := 2;
+            END_IF;
+        END_IF;
+    1: (* Filling *)
+        IF NOT Status.Running THEN
+            Status.State := 0;
+        ELSIF Level &gt;= FillTarget OR Status.HighAlarm THEN
+            Status.State := 2;
+        END_IF;
+    2: (* Draining *)
+        IF NOT Status.Running THEN
+            Status.State := 0;
+        ELSIF Level &lt;= DrainTarget OR Status.LowAlarm THEN
+            Status.State := 1;
+        END_IF;
+ELSE
+    Status.State := 0;
+END_CASE;
+(* Routine 5 - equipment objects and physical outputs. The alarms are
+   interlocks in both modes: high level blocks the pump, low level blocks the valve. *)
+Pump(AutoCmd := Status.State = 1,
+     ManualCmd := Hmi.ManualPump,
+     ManualMode := NOT Status.AutoMode,
+     Permissive := NOT Status.HighAlarm,
+     Feedback := Inputs.PumpFeedback,
+     Reset := Hmi.ResetCmd);
+Valve(AutoCmd := Status.State = 2,
+      ManualCmd := Hmi.ManualValve,
+      ManualMode := NOT Status.AutoMode,
+      Permissive := NOT Status.LowAlarm,
+      OpenFeedback := Inputs.ValveOpenFeedback,
+      Reset := Hmi.ResetCmd);
+
+Status.PumpRunning := Pump.Running;
+Status.PumpFault := Pump.Fault;
+Status.ValveIsOpen := Valve.IsOpen;
+Status.ValveFault := Valve.Fault;
+
+Outputs.PumpRun := Pump.Run;
+Outputs.ValveOpen := Valve.Open;
+Outputs.HighAlarmLamp := Status.HighAlarm;
+Outputs.LowAlarmLamp := Status.LowAlarm;</xhtml>
+          </ST>
+        </body>
+      </pou>
+    </pous>
+  </types>
+  <instances>
+    <configurations>
+      <configuration name="Config0">
+        <resource name="Application">
+          <globalVars name="GVL_IO">
+            <variable name="Inputs">
+              <type>
+                <derived name="ST_DigitalInputs" />
+              </type>
+              <initialValue>
+                <simpleValue value="(StopButton := TRUE, AutoSelector := TRUE)" />
+              </initialValue>
+            </variable>
+            <variable name="Outputs">
+              <type>
+                <derived name="ST_DigitalOutputs" />
+              </type>
+            </variable>
+            <variable name="Analog">
+              <type>
+                <derived name="ST_AnalogInputs" />
+              </type>
+            </variable>
+          </globalVars>
+          <globalVars name="GVL_Process">
+            <variable name="Level">
+              <type>
+                <REAL />
+              </type>
+            </variable>
+            <variable name="Hmi">
+              <type>
+                <derived name="ST_HmiCommands" />
+              </type>
+            </variable>
+            <variable name="Status">
+              <type>
+                <derived name="ST_TankStatus" />
+              </type>
+            </variable>
+          </globalVars>
+          <globalVars name="GVL_Settings">
+            <variable name="FillTarget">
+              <type>
+                <REAL />
+              </type>
+              <initialValue>
+                <simpleValue value="80.0" />
+              </initialValue>
+            </variable>
+            <variable name="DrainTarget">
+              <type>
+                <REAL />
+              </type>
+              <initialValue>
+                <simpleValue value="20.0" />
+              </initialValue>
+            </variable>
+            <variable name="HighAlarmLimit">
+              <type>
+                <REAL />
+              </type>
+              <initialValue>
+                <simpleValue value="95.0" />
+              </initialValue>
+            </variable>
+            <variable name="LowAlarmLimit">
+              <type>
+                <REAL />
+              </type>
+              <initialValue>
+                <simpleValue value="5.0" />
+              </initialValue>
+            </variable>
+          </globalVars>
+          <globalVars name="GVL_Simulation">
+            <variable name="SimEnable">
+              <type>
+                <BOOL />
+              </type>
+              <initialValue>
+                <simpleValue value="TRUE" />
+              </initialValue>
+            </variable>
+            <variable name="SimLevel">
+              <type>
+                <REAL />
+              </type>
+              <initialValue>
+                <simpleValue value="50.0" />
+              </initialValue>
+            </variable>
+            <variable name="SimInflowRate">
+              <type>
+                <REAL />
+              </type>
+              <initialValue>
+                <simpleValue value="4.0" />
+              </initialValue>
+            </variable>
+            <variable name="SimOutflowRate">
+              <type>
+                <REAL />
+              </type>
+              <initialValue>
+                <simpleValue value="3.0" />
+              </initialValue>
+            </variable>
+            <variable name="SimScanSeconds">
+              <type>
+                <REAL />
+              </type>
+              <initialValue>
+                <simpleValue value="0.01" />
+              </initialValue>
+            </variable>
+          </globalVars>
+          <task name="MainTask" interval="PT0.01S" priority="10">
+            <pouInstance name="MainInstance" typeName="Main" />
+          </task>
+        </resource>
+      </configuration>
+    </configurations>
+  </instances>
+</project>

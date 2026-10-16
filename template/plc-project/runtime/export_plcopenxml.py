@@ -58,7 +58,16 @@ ET.register_namespace("", PLC)
 
 original_path = ROOT / "plcopen" / "original.xml"
 manifest_source = ROOT / "plcopen" / "manifest.json"
-source_name = original_path.stem if original_path.exists() else "HPLC"
+def project_name():
+    """Project name from plc.toml, for projects that did not come from an XML."""
+    try:
+        match = re.search(r'^name\s*=\s*"([^"]+)"', (ROOT / "plc.toml").read_text(encoding="utf-8"), re.M)
+        return match.group(1) if match else "HPLC"
+    except OSError:
+        return "HPLC"
+
+
+source_name = original_path.stem if original_path.exists() else project_name()
 if manifest_source.exists():
     try:
         source_name = Path(json.loads(manifest_source.read_text(encoding="utf-8")).get("source", source_name)).stem
@@ -143,7 +152,7 @@ def add_variable(parent, item):
 
 root=ET.Element(q("project"))
 ET.SubElement(root,q("fileHeader"),{"companyName":"HPLC","productName":"HPLC","productVersion":"0.1","creationDateTime":dt.datetime.now(dt.timezone.utc).isoformat()})
-header=ET.SubElement(root,q("contentHeader"),{"name":f"{export_stem}_Full","modificationDateTime":dt.datetime.now(dt.timezone.utc).isoformat()})
+header=ET.SubElement(root,q("contentHeader"),{"name":export_stem,"modificationDateTime":dt.datetime.now(dt.timezone.utc).isoformat()})
 coord=ET.SubElement(header,q("coordinateInfo"))
 for lang in ("fbd","ld","sfc"):
     ET.SubElement(ET.SubElement(coord,q(lang)),q("scaling"),{"x":"1","y":"1"})
@@ -230,8 +239,12 @@ if without_declaration:
 instances=ET.SubElement(root,q("instances")); configurations=ET.SubElement(instances,q("configurations")); config=ET.SubElement(configurations,q("configuration"),{"name":"Config0"}); resource=ET.SubElement(config,q("resource"),{"name":"Application"})
 for source in files("globals"):
     text=source.read_text(encoding="utf-8")
+    # The GVL name must be an IEC identifier: files are ordered with a numeric
+    # prefix (30_GVL_Simulation.st), which is dropped from the list name.
+    gvl_name=re.sub(r"^[\d_]+","",source.stem) or "GVL"
+    gvl_name=re.sub(r"\W","_",gvl_name)
     for index,m in enumerate(re.finditer(r"VAR_GLOBAL(.*?)END_VAR",text,re.S|re.I)):
-        name=source.stem if index==0 else f"{source.stem}_{index+1}"
+        name=gvl_name if index==0 else f"{gvl_name}_{index+1}"
         holder=ET.SubElement(resource,q("globalVars"),{"name":name})
         for item in declarations(m.group(1)): add_variable(holder,item)
 task=ET.SubElement(resource,q("task"),{"name":"MainTask","interval":"PT0.01S","priority":"10"})

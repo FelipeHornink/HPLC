@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 	<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
 		<Metadata>
-			<Identity Language="en-US" Id="hplc" Version="0.40.1" Publisher="FelipeHornink" />
+			<Identity Language="en-US" Id="hplc" Version="0.41.0" Publisher="FelipeHornink" />
 			<DisplayName>HPLC</DisplayName>
 			<Description xml:space="preserve">HPLC: build, simulate and debug IEC 61131-3 ST projects; import and export PLCopenXML.</Description>
 			<Tags>iec-st,Structured Text,ST,__ext_st</Tags>

@@ -18,6 +18,14 @@ original project or as portable logic for any IEC IDE.
 
 <sub>The HMI of the water-tank example running in HPLC (time-lapse, 5×).</sub>
 
+In VS Code: the HPLC explorer on the left, the HMI on top and the live code below, with
+the lines executed in the last scan highlighted and the values next to the code.
+
+![HPLC in VS Code: explorer, HMI and live code](docs/images/vscode.png)
+
+**New here?** Follow [Getting started](docs/GETTING-STARTED.md): your first program in five
+minutes, then your first PLCopenXML import.
+
 > **Status:** HPLC is used daily for engineering and commissioning tests. It is a
 > **simulator for engineering**. It is not a controller, and it must never drive real
 > equipment.
@@ -122,13 +130,20 @@ much faster there. The HMI and P&ID pages open in your Windows browser through
 
 ## Quick start
 
-1. Copy [`examples/water-tank`](examples/water-tank) somewhere outside this repository.
-2. In the HPLC view, click **Add project folder** and pick that folder. The example ships
-   without a runtime, so HPLC offers to **install the runtime** into it. Accept.
-3. Hover the project and click **Play** (▶). HPLC compiles the program, starts it and opens
+1. In the HPLC view, click **New project…** and choose **Starter project**. You get a
+   small working program, ready to edit: a motor with start/stop, a run-time counter and a
+   blinking lamp, with the HMI and P&ID already set up.
+2. Hover the project and click **Play** (▶). HPLC compiles the program, starts it and opens
    the HMI and the live code, one above the other.
-4. Press **Start** on the HMI. The pump fills the tank to 80 %, the valve drains it to 20 %,
-   and the cycle repeats. The level, state and alarms update live.
+3. Press **Start** on the HMI, then edit `routines/02_Logic.st` and press **Play** again.
+
+To try the import, use the sample
+[`examples/plcopen/water-tank-sample.xml`](examples/plcopen/water-tank-sample.xml) with
+**Import PLCopenXML…**. For a bigger example, copy [`examples/water-tank`](examples/water-tank)
+and open it with **Add project folder**. It ships without a runtime, and HPLC offers to
+install one.
+
+The step-by-step version is in [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
 
 ## Project layout
 

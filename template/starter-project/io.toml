@@ -1,0 +1,27 @@
+# I/O map: one block per physical channel.
+# [[di]] digital inputs, [[do]] digital outputs, [[ai]] analog inputs, [[ao]] analog outputs.
+# control = "switch" | "momentary" | "feedback" tells the HMI how to drive a DI.
+
+[[di]]
+name="StartButton"
+address="DI-00"
+label="Start push button"
+control="momentary"
+[[di]]
+name="StopButton"
+address="DI-01"
+label="Stop push button (NC)"
+control="momentary"
+
+[[do]]
+name="MotorContactor"
+address="DQ-00"
+label="Motor contactor"
+[[do]]
+name="RunLamp"
+address="DQ-01"
+label="Run lamp (green)"
+[[do]]
+name="BlinkLamp"
+address="DQ-02"
+label="Stopped lamp (blinking)"

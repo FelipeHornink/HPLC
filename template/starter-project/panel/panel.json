@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "title": "My first PLC",
+  "display": {"realPrecision": 1, "theme": "light"},
+  "areas": {
+    "monitoring": [
+      {"tag":"MotorRunning","label":"Motor","kind":"lamp","ioType":"STATUS","writable":false,"valueLabels":{"true":"Running","false":"Stopped"}},
+      {"tag":"RunSeconds","label":"Run time","kind":"number","ioType":"STATUS","unit":"s","writable":false},
+      {"tag":"StartCount","label":"Starts","kind":"number","ioType":"STATUS","writable":false}
+    ],
+    "hmi": [
+      {"tab":"Operation","tag":"HmiStart","label":"Start","kind":"momentary","ioType":"HMI","writable":true},
+      {"tab":"Operation","tag":"HmiStop","label":"Stop","kind":"momentary","ioType":"HMI","writable":true},
+      {"tab":"Operation","tag":"MotorRunning","label":"Motor running","kind":"lamp","ioType":"STATUS","writable":false}
+    ],
+    "panel": [
+      {"tag":"StartButton","label":"Start push button","kind":"momentary","ioType":"DI","address":"DI-00","writable":true},
+      {"tag":"StopButton","label":"Stop push button (NC)","kind":"toggle","ioType":"DI","address":"DI-01","writable":true,"valueLabels":{"true":"Released","false":"Pressed"}},
+      {"tag":"RunLamp","label":"Run lamp","kind":"lamp","ioType":"DO","address":"DQ-01","writable":false},
+      {"tag":"BlinkLamp","label":"Stopped lamp","kind":"lamp","ioType":"DO","address":"DQ-02","writable":false}
+    ],
+    "interface": [],
+    "field": [
+      {"tag":"MotorContactor","label":"Motor contactor M-1","kind":"lamp","ioType":"DO","address":"DQ-00","writable":false}
+    ],
+    "communication": []
+  }
+}

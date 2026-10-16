@@ -4,6 +4,14 @@ const crypto = require('crypto');
 
 // This index uses the compiled snapshot. Editing an ST file cannot silently
 // change the source shown for an already running binary.
+// POU kind and name from a source file. Comments are ignored, and the keyword must
+// start a line: a header comment such as "the program reads from top to bottom"
+// would otherwise be taken for PROGRAM reads.
+function pouHeader(text) {
+  const code = text.replace(/\(\*[\s\S]*?\*\)/g, match => match.replace(/[^\n]/g, ' ')).replace(/\/\/.*$/gm, '');
+  return code.match(/^\s*(PROGRAM|FUNCTION_BLOCK|FUNCTION)\s+(\w+)/im);
+}
+
 function buildModel(project) {
   const build = path.join(project, '.plcsim/build');
   const compiled = fs.readFileSync(path.join(build, 'project.st'), 'utf8');
@@ -24,7 +32,7 @@ function buildModel(project) {
     if (snapshot.startsWith(base)) try { text = fs.readFileSync(snapshot, 'utf8'); } catch (_) {}
     unit.rows = text !== undefined ? text.split(/\r?\n/).map((text, i) => ({ line: i + 1, text, projectLines: unit.indexed.get(i + 1)?.projectLines || [] })) : [...unit.indexed.values()].sort((a, b) => a.line - b.line);
     unit.text = unit.rows.map(r => r.text).join('\n');
-    const header = unit.text.match(/\b(PROGRAM|FUNCTION_BLOCK|FUNCTION)\s+(\w+)/i);
+    const header = pouHeader(unit.text);
     unit.name = header?.[2] || path.basename(unit.file, '.st');
     unit.pouKind = header?.[1] || 'ROUTINE';
     delete unit.indexed;
@@ -97,4 +105,4 @@ function executionState(model, debug) {
   const location = model.lines[String(id)];
   return { executed, current: location && model.files[location.file] ? { file: location.file, line: location.line, paused } : null };
 }
-module.exports = { buildModel, executionState };
+module.exports = { buildModel, executionState, pouHeader };

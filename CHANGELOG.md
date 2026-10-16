@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.41.0
+
+- **Starter project:** "HPLC: New PLC project" (and **New project…** in the HPLC view)
+  offers a small working program to edit, with the HMI and P&ID ready: motor start/stop,
+  run-time counter and blinking lamp.
+- `examples/plcopen/water-tank-sample.xml`: a sample PLCopenXML file to try the import.
+- Export of projects not imported from XML: GVL names are valid IEC identifiers (the
+  numeric file prefix is dropped), and the file is named after the project.
+- `docs/GETTING-STARTED.md`: step-by-step guide to the first program and the first import.
+
 ## 0.40.1
 
 - Build errors that only show up in the C++ step (for example a typo read as a function

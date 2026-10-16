@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "title": "My first PLC — process view",
+  "display": {"realPrecision": 1, "theme": "light"},
+  "items": [
+    {"id":"motor","tag":"MotorContactor","label":"M-1 contactor","kind":"display","x":50,"y":18,"width":150,"onLabel":"Running","offLabel":"Stopped"},
+    {"id":"runtime","tag":"RunSeconds","label":"Run time","kind":"display","x":50,"y":78,"width":150,"unit":"s"},
+    {"id":"start","tag":"HmiStart","label":"Start","kind":"momentary","writable":true,"x":30,"y":90,"width":120},
+    {"id":"stop","tag":"HmiStop","label":"Stop","kind":"momentary","writable":true,"x":70,"y":90,"width":120}
+  ],
+  "shapes": [
+    {"id":"line_in","type":"pipe","x":26,"y":50,"width":28,"height":2.5,"rotation":0},
+    {"id":"motor_m1","type":"motor","x":50,"y":50,"width":10,"height":10,"rotation":0,"tag":"MotorContactor","onColor":"#4d7558","offColor":"#8a97a0","label":"M-1"},
+    {"id":"line_out","type":"pipe","x":74,"y":50,"width":28,"height":2.5,"rotation":0}
+  ]
+}

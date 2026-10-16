@@ -1469,7 +1469,9 @@ class PlcTreeProvider {
       treeAction(t('tree.addProjectFolder'), t('tree.addProjectFolderDescription'), 'folder-opened', 'hplc.addProject',
         t('tree.addProjectFolderTooltip')),
       treeAction(t('tree.importXml'), t('tree.importXmlDescription'), 'cloud-download', 'hplc.importXml',
-        t('tree.importXmlTooltip'))
+        t('tree.importXmlTooltip')),
+      treeAction(t('tree.newProject'), t('tree.newProjectDescription'), 'new-folder', 'hplc.newProject',
+        t('tree.newProjectTooltip'))
     ];
     if (!projects.length) {
       const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -2160,10 +2162,21 @@ async function activate(context) {
     }),
     registerCommand('hplc.newProject', async () => {
       try {
-        const target = await chooseNewProjectTarget(t('newProject.folderTitle'));
+        // Starter: a small working program with HMI and P&ID, ready to edit.
+        // Empty: only the project skeleton.
+        const kind = await vscode.window.showQuickPick([
+          { label: t('newProject.starterLabel'), detail: t('newProject.starterDetail'), value: 'starter' },
+          { label: t('newProject.emptyLabel'), detail: t('newProject.emptyDetail'), value: 'empty' }
+        ], { title: t('newProject.kindTitle') });
+        if (!kind) return;
+        const target = await chooseNewProjectTarget(t('newProject.folderTitle'),
+          kind.value === 'starter' ? { defaultName: t('newProject.starterDefaultName') } : undefined);
         if (!target) return;
         copyProjectTemplate(context, target);
         resetProjectContent(target);
+        if (kind.value === 'starter') {
+          fs.cpSync(path.join(context.extensionPath, 'template', 'starter-project'), target, { recursive: true, force: true });
+        }
         const name = path.basename(target).replace(/"/g, '');
         const manifest = fs.readFileSync(path.join(target, 'plc.toml'), 'utf8').replace(/^name\s*=.*$/m, `name = "${name}"`);
         fs.writeFileSync(path.join(target, 'plc.toml'), manifest);
@@ -2172,7 +2185,11 @@ async function activate(context) {
         await context.workspaceState.update('hplc.activeProject', target);
         await context.globalState.update('hplc.activeProject', target);
         refreshUi();
-        vscode.window.showInformationMessage(t('newProject.created', { name }));
+        if (kind.value === 'starter') {
+          const logic = path.join(target, 'routines', '02_Logic.st');
+          if (fs.existsSync(logic)) await vscode.window.showTextDocument(vscode.Uri.file(logic), { preview: false });
+          vscode.window.showInformationMessage(t('newProject.starterCreated', { name }));
+        } else vscode.window.showInformationMessage(t('newProject.created', { name }));
       } catch (error) { vscode.window.showErrorMessage(t('newProject.failed', { error: error.message })); }
     }),
     registerCommand('hplc.importXml', async () => {
