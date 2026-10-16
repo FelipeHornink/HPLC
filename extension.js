@@ -67,6 +67,7 @@ let followedLocation;
 let liveCode;
 const { prepareBuildScript } = require('./workbench-build');
 const { createLiveCode } = require('./live-code');
+const { parseBuildOutput } = require('./build-diagnostics');
 const { prepareRunScript } = require('./workbench-run');
 const equipmentPanels = new Map();
 
@@ -477,47 +478,53 @@ function runProcess(command, args, cwd, extraEnv = {}) {
 
 function publishBuildDiagnostics(project, text) {
   diagnosticCollection.clear();
-  const sourceMap = readSourceMap(project);
   let importDiagnostics = {};
   try { importDiagnostics = JSON.parse(fs.readFileSync(path.join(project, 'plcopen', 'manifest.json'), 'utf8')).diagnostics || {}; } catch (_) {}
   const externalNames = [...new Set([...(importDiagnostics.unresolvedTypes || []), ...(importDiagnostics.unresolvedBlocks || [])])];
   const grouped = new Map();
-  let first;
-  const pattern = /^(.*?\.st):(\d+)(?:-(\d+)|:(\d+))?(?:\.\.(?:\d+)-(?:\d+))?\s*:\s*(?:(error|warning)\s*:\s*)?(.+)/i;
-  for (const line of text.split(/\r?\n/)) {
-    const match = pattern.exec(line);
-    pattern.lastIndex = 0;
-    if (!match) continue;
-    let file = match[1], lineNumber = Number(match[2]), column = Number(match[3] || match[4] || 1);
-    if (path.basename(file) === 'project.st') {
-      const mapped = sourceMap.lines?.[String(lineNumber)];
-      if (mapped) { file = mapped.file; lineNumber = mapped.line; column = 1; }
-    }
-    const absolute = path.isAbsolute(file) ? file : path.join(project, file);
+  const errors = [];
+  let first, warnings = 0;
+  for (const item of parseBuildOutput(project, text)) {
+    const absolute = path.isAbsolute(item.file) ? item.file : path.join(project, item.file);
     const uri = vscode.Uri.file(absolute);
-    let message = match[6].trim();
+    let message = item.message;
+    if (item.compiler === 'cpp') {
+      message = item.mapped
+        ? `${t(item.key, item.params)}\n${t('build.cpp.detail', item.params)}`
+        : t('build.cpp.unmapped', item.params);
+    }
     try {
-      const sourceLine = fs.readFileSync(absolute, 'utf8').split(/\r?\n/)[lineNumber - 1] || '';
+      const sourceLine = fs.readFileSync(absolute, 'utf8').split(/\r?\n/)[item.line - 1] || '';
       const external = externalNames.find(name => sourceLine.includes(name));
       if (external) message = t('build.externalDependency', { name: external, message });
     } catch (_) {}
+    const start = new vscode.Position(Math.max(0, item.line - 1), Math.max(0, item.column - 1));
     const diagnostic = new vscode.Diagnostic(
-      new vscode.Range(Math.max(0, lineNumber - 1), Math.max(0, column - 1), Math.max(0, lineNumber - 1), Math.max(1, column)),
+      new vscode.Range(start, start.translate(0, Math.max(1, item.length))),
       message,
-      (match[5] || '').toLowerCase() === 'warning' ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
+      item.severity === 'warning' ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
     );
-    diagnostic.source = 'HPLC / IEC ST';
+    diagnostic.source = item.compiler === 'cpp' ? 'HPLC / C++' : 'HPLC / IEC ST';
     const key = uri.toString();
     if (!grouped.has(key)) grouped.set(key, { uri, diagnostics: [] });
     grouped.get(key).diagnostics.push(diagnostic);
-    if (!first && diagnostic.severity === vscode.DiagnosticSeverity.Error) first = { uri, diagnostic };
+    if (diagnostic.severity === vscode.DiagnosticSeverity.Error) {
+      errors.push({ file: item.file, line: item.line, column: item.column, message: message.split('\n')[0] });
+      if (!first) first = { uri, diagnostic };
+    } else warnings++;
   }
   for (const { uri, diagnostics } of grouped.values()) diagnosticCollection.set(uri, diagnostics);
-  return { count: [...grouped.values()].reduce((total, item) => total + item.diagnostics.length, 0), first, externalCount: externalNames.length };
+  // Only errors count as "located": warnings never stop the build.
+  return { count: errors.length, errors, warnings, first, externalCount: externalNames.length };
 }
 
 async function showBuildFailure(project, transcript) {
   const result = publishBuildDiagnostics(project, transcript);
+  if (result.errors.length) {
+    output.appendLine(`\n${t('build.summaryHeader')}`);
+    for (const error of result.errors) output.appendLine(`  ✖ ${error.file}:${error.line}:${error.column}  ${error.message}`);
+    if (result.warnings) output.appendLine(`  ${t('build.summaryWarnings', { count: result.warnings })}`);
+  }
   const located = result.count ? t('build.locatedErrors', { count: result.count }) : t('build.unlocatedError');
   const pending = result.externalCount ? ` · ${t('build.pendingExternal', { count: result.externalCount })}` : '';
   vscode.window.showErrorMessage(t('build.failed', { located, pending }));

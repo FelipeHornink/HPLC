@@ -10,7 +10,7 @@
   "bugs": {
     "url": "https://github.com/FelipeHornink/HPLC/issues"
   },
-  "version": "0.40.0",
+  "version": "0.40.1",
   "publisher": "FelipeHornink",
   "engines": {
     "vscode": "^1.85.0"

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.40.1
+
+- Build errors that only show up in the C++ step (for example a typo read as a function
+  call) now point at the `.st` file, line and column, with a plain-language message.
+- "PLC did not start" counts only errors; warnings no longer appear as located errors.
+- A failed build lists every error with file, line and column in the HPLC output.
+
 ## 0.40.0 — first public release
 
 - **Import** PLCopenXML (CODESYS, MasterTool IEC XE): ST kept as is; Ladder and FBD
