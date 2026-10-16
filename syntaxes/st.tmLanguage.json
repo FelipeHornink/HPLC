@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "IEC Structured Text",
+  "scopeName": "source.iec-st",
+  "patterns": [
+    { "include": "#comments" },
+    { "name": "keyword.control.iec-st", "match": "\\b(PROGRAM|END_PROGRAM|FUNCTION|END_FUNCTION|FUNCTION_BLOCK|END_FUNCTION_BLOCK|VAR|VAR_INPUT|VAR_OUTPUT|VAR_GLOBAL|END_VAR|IF|THEN|ELSIF|ELSE|END_IF|CASE|OF|END_CASE|FOR|TO|DO|END_FOR|WHILE|END_WHILE|RETURN)\\b" },
+    { "name": "constant.language.iec-st", "match": "\\b(TRUE|FALSE)\\b" },
+    { "name": "storage.type.iec-st", "match": "\\b(BOOL|BYTE|WORD|DWORD|SINT|USINT|INT|UINT|DINT|UDINT|LINT|ULINT|REAL|LREAL|TIME|STRING)\\b" },
+    { "name": "constant.numeric.iec-st", "match": "\\b(?:T#(?:[0-9]+(?:ms|s|m|h))+|[0-9]+(?:\\.[0-9]+)?)\\b" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        { "name": "comment.block.iec-st", "begin": "\\(\\*", "end": "\\*\\)" },
+        { "name": "comment.line.double-slash.iec-st", "begin": "//", "end": "$" }
+      ]
+    }
+  }
+}

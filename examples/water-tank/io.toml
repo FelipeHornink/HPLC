@@ -1,0 +1,54 @@
+# I/O map of the project: one block per physical channel.
+# [[di]] digital inputs, [[do]] digital outputs, [[ai]] analog inputs, [[ao]] analog outputs.
+# control = "switch" | "momentary" | "feedback" tells the bench how to drive a DI.
+
+[[di]]
+name="Inputs.StartButton"
+address="DI-00"
+label="Start push button"
+control="momentary"
+[[di]]
+name="Inputs.StopButton"
+address="DI-01"
+label="Stop push button (NC)"
+control="momentary"
+[[di]]
+name="Inputs.AutoSelector"
+address="DI-02"
+label="Auto / Manual selector"
+control="switch"
+[[di]]
+name="Inputs.PumpFeedback"
+address="DI-03"
+label="Pump running feedback"
+control="feedback"
+[[di]]
+name="Inputs.ValveOpenFeedback"
+address="DI-04"
+label="Valve open limit switch"
+control="feedback"
+
+[[do]]
+name="Outputs.PumpRun"
+address="DQ-00"
+label="Inlet pump P-101"
+[[do]]
+name="Outputs.ValveOpen"
+address="DQ-01"
+label="Outlet valve XV-102"
+[[do]]
+name="Outputs.HighAlarmLamp"
+address="DQ-02"
+label="High level lamp"
+[[do]]
+name="Outputs.LowAlarmLamp"
+address="DQ-03"
+label="Low level lamp"
+
+[[ai]]
+name="Analog.LevelRaw"
+address="AI-00"
+label="LT-100 tank level"
+minimum=0.0
+maximum=100.0
+unit="%"

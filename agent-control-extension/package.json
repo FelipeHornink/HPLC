@@ -1,0 +1,20 @@
+{
+  "name": "hplc-control",
+  "displayName": "HPLC — Local control",
+  "description": "Authenticated local bridge for the HPLC extension commands.",
+  "publisher": "FelipeHornink",
+  "version": "0.2.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "extensionDependencies": [
+    "FelipeHornink.hplc"
+  ],
+  "main": "./extension.js"
+}

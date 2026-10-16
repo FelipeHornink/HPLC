@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "title": "New PLC project",
+  "display": {"realPrecision": 2, "theme": "light"},
+  "areas": {
+    "monitoring": [],
+    "hmi": [],
+    "panel": [],
+    "interface": [],
+    "field": [],
+    "communication": []
+  }
+}

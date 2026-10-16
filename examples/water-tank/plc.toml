@@ -1,0 +1,14 @@
+# HPLC project manifest.
+name = "Water Tank Demo"
+standard = "IEC 61131-3"
+# HTTP ports of the bench (HMI) page and of the P&ID page.
+panel_port = 8100
+pid_port = 8101
+# Only these folders are compiled, in this order.
+source_directories = ["types", "functions", "blocks", "globals", "programs", "routines"]
+
+# Cyclic task: runs the program below every interval_ms milliseconds.
+[[task]]
+name = "MainTask"
+interval_ms = 10
+program = "Main"

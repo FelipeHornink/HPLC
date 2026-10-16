@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HPLC — Bench</title>
+<style>
+:root{--editorW:min(330px,94vw);--simW:min(460px,96vw);color-scheme:light;font-family:"Segoe UI",Arial,sans-serif;--bg:#e9edf0;--surface:#ffffff;--raised:#f4f6f7;--header:#29343b;--headerText:#f5f7f8;--line:#c4ccd1;--lineStrong:#8d9aa3;--muted:#5f6b73;--text:#20272c;--accent:#315f78;--accentSoft:#dbe7ed;--ok:#3f6b4f;--okBg:#e1ebe4;--danger:#8a4141;--dangerBg:#f1e2e2;--button:#45545d;--buttonText:#fff;--shadow:0 1px 2px #00000018}[data-theme=dark]{color-scheme:dark;--bg:#1d2226;--surface:#282e32;--raised:#22282c;--header:#151a1d;--headerText:#eef1f2;--line:#465158;--lineStrong:#6b7981;--muted:#a8b1b6;--text:#e3e7e9;--accent:#8eafbf;--accentSoft:#34454e;--ok:#8fb69a;--okBg:#304239;--danger:#d29393;--dangerBg:#493434;--button:#56656d;--buttonText:#fff;--shadow:none}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}button,input{font:inherit}header{position:sticky;top:0;z-index:5;height:48px;display:flex;align-items:center;gap:8px;padding:0 14px;background:var(--header);color:var(--headerText);border-bottom:1px solid #1118}h1{font-size:14px;margin:0;flex:1}.status{font-size:10px;font-weight:700;padding:5px 8px;border:1px solid #b77;border-radius:3px;color:#f0c2c2}.status.online{border-color:#809b87;color:#d5e7da}.top-button{border:1px solid #ffffff38;border-radius:3px;padding:6px 9px;background:#ffffff12;color:var(--headerText);cursor:pointer}.top-button:hover{background:#ffffff20}.layout{padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.card{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:10px;box-shadow:var(--shadow)}.card h2{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin:0 0 8px}.monitor-card{grid-column:1/-1;border-top:3px solid var(--accent)}.monitor-card .list{grid-template-columns:repeat(auto-fit,minmax(245px,1fr))}.monitor-card .tag-row{grid-template-columns:minmax(130px,1fr) minmax(90px,auto)}.monitor-card .readonly{font-size:13px;color:var(--text)}.hint{font-size:10px;color:var(--muted);margin-bottom:8px}.tabs{display:flex;gap:4px;margin-bottom:7px;border-bottom:1px solid var(--line);padding-bottom:5px}.tab{border:1px solid var(--line);border-radius:3px;padding:5px 8px;background:var(--raised);color:var(--text);cursor:pointer}.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}.list{display:grid;gap:5px}.tag-row{display:grid;grid-template-columns:minmax(155px,1fr) 86px;gap:8px;align-items:center;padding:7px;background:var(--raised);border:1px solid var(--line);border-radius:3px;min-width:0}.tag-row.missing{border-color:var(--danger)}.tag-info{min-width:0}.tag-label{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:650}.chip-sim{font:700 8px ui-monospace,monospace;padding:2px 4px;border-radius:2px;background:#b3771f;color:#fff;letter-spacing:.04em;border:1px solid #b3771f}span.chip-sim{cursor:default}.tag-row.pair{grid-template-columns:minmax(155px,1fr) 190px}.pair-values{display:grid;grid-template-columns:1fr 1fr;gap:6px}.pair-side{display:grid;gap:2px;justify-items:stretch}.pair-side .control{width:100%}.pair-caption{font:700 8px ui-monospace,monospace;color:var(--muted);text-align:center;letter-spacing:.04em}.pair-side.active .pair-caption{color:#b3771f}.pair-side.active .control,.pair-side.active .readonly{box-shadow:0 0 0 2px #b3771f}.pair-side:not(.active) .control,.pair-side:not(.active) .readonly{opacity:.55}button.chip-sim{cursor:pointer}.chip-sim.off{background:transparent;color:var(--muted);border-color:var(--line)}button.chip-sim.off:hover{border-color:#b3771f;color:#b3771f}
+[data-theme=dark] .chip-sim{background:#c08a33;border-color:#c08a33}
+[data-theme=dark] .chip-sim.off{background:transparent;border-color:var(--line)}
+.tag-row.simulated{border-left:3px solid #b3771f}
+.badge{font:700 9px ui-monospace,monospace;padding:2px 4px;border:1px solid var(--lineStrong);border-radius:2px;color:var(--accent)}.tag-path{display:block;margin-top:3px;color:var(--muted);font:9px ui-monospace,monospace;white-space:normal;overflow-wrap:anywhere}.control{width:86px;min-height:30px;border:1px solid var(--lineStrong);border-radius:3px;background:var(--button);color:var(--buttonText);font-weight:700;cursor:pointer}.control.true{background:var(--ok);border-color:var(--ok)}.control.pushbutton.true{transform:translateY(1px);box-shadow:inset 0 2px 3px #0004}input.control{padding:5px;background:var(--surface);color:var(--text);cursor:text}.readonly{font:700 12px ui-monospace,monospace;color:var(--accent);text-align:right;overflow-wrap:anywhere}.missing-value{font-size:9px;color:var(--danger);text-align:right}.drawer{position:fixed;z-index:10;right:0;top:0;bottom:0;width:min(650px,96vw);background:var(--surface);border-left:1px solid var(--lineStrong);padding:12px;transform:translateX(100%);transition:.15s;display:grid;grid-template-rows:auto auto 1fr;gap:8px;box-shadow:-3px 0 12px #0003}.drawer.open{transform:none}.drawer-head{display:flex;align-items:center;gap:8px}.drawer-head h2{font-size:13px;flex:1;margin:0}.drawer .top-button{background:var(--button);color:var(--buttonText)}.search{padding:8px;background:var(--surface);border:1px solid var(--lineStrong);border-radius:3px;color:var(--text)}.raw{overflow:auto;display:grid;gap:3px;align-content:start}.raw-row{display:grid;grid-template-columns:minmax(180px,1fr) 100px;gap:7px;padding:5px;border-bottom:1px solid var(--line)}.raw-row code{font-size:10px;overflow-wrap:anywhere}.raw-row button,.raw-row input{width:100%;padding:4px;border:1px solid var(--lineStrong);border-radius:3px;background:var(--surface);color:var(--text)}.raw-row button.true{background:var(--ok);color:#fff}@media(max-width:850px){.layout{grid-template-columns:1fr}.monitor-card{grid-column:auto}.tag-row{grid-template-columns:minmax(120px,1fr) 80px}.control{width:80px}header{gap:5px}h1{font-size:12px}}
+.drawer{grid-template-rows:auto auto 150px auto 1fr}.drawer canvas{display:block;width:100%;height:150px;background:var(--raised);border:1px solid var(--line)}.raw-row{grid-template-columns:30px minmax(180px,1fr) 100px}.watch-star{width:28px!important;background:transparent!important;color:var(--accent)!important;border:0!important;font-size:16px}.drawer #watchList{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
+.sim-panel{position:fixed;left:0;top:48px;bottom:0;width:var(--simW);overflow:auto;padding:10px 12px;background:var(--surface);border-right:1px solid var(--lineStrong);box-shadow:3px 0 12px #0003;z-index:11;display:none}
+.sim-panel.open{display:block}
+body.sim-open main{margin-left:var(--simW)}
+.sim-head{display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--line);font-size:12px}
+.sim-head b{flex:1}
+.sim-head button,.sim-switch button{padding:5px 9px;border:1px solid var(--line);border-radius:3px;background:var(--raised);color:var(--text);cursor:pointer;font:inherit;font-size:11px}
+.sim-switch{display:flex;align-items:center;gap:8px;margin:9px 0;font-size:11px;color:var(--muted)}
+.sim-switch span{flex:1}
+.sim-switch button.true{background:var(--ok);border-color:var(--ok);color:#fff}
+.sim-hint{font-size:10px;color:var(--muted);line-height:1.5;margin-bottom:9px}
+.sim-code{font:11px/1.5 ui-monospace,monospace}
+.sim-line{display:grid;grid-template-columns:26px 1fr auto;gap:6px;padding:1px 3px;border-left:2px solid transparent;white-space:pre-wrap;overflow-wrap:anywhere}
+.sim-line .n{color:var(--muted);text-align:right;font-size:9px;padding-top:2px}
+.sim-line.comment code{color:var(--muted)}
+.sim-line.structure code{color:var(--accent);font-weight:650}
+.sim-line.changed{background:var(--accentSoft);border-left-color:var(--ok)}
+.sim-value{font-weight:700;color:var(--accent);white-space:nowrap;font-size:10px;padding-top:1px}
+.sim-value.up{color:var(--ok)}
+.sim-value.down{color:var(--danger)}
+.editor{position:fixed;right:0;top:48px;bottom:0;width:var(--editorW);overflow:auto;padding:12px;background:var(--surface);border-left:1px solid var(--lineStrong);box-shadow:-3px 0 12px #0003;z-index:11;display:none}
+.editor.open{display:block}
+.editor details{border-top:1px solid var(--line)}
+.editor summary{cursor:pointer;padding:9px 2px;font:600 11px "Segoe UI",Arial,sans-serif;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+.editor details>*{margin-bottom:5px}
+.editor-actions{display:grid;grid-template-columns:1fr auto auto;gap:5px;margin:8px 0 4px}
+.editor-actions .primary{background:var(--accent);border-color:transparent;color:#fff;font-weight:650}
+.editor-foot{border-top:1px solid var(--line);margin-top:10px;padding-top:9px;display:grid;gap:6px;font-size:10px;color:var(--muted);line-height:1.5}
+.editor label{display:grid;grid-template-columns:80px 1fr;gap:6px;align-items:center;font-size:11px;color:var(--muted);margin-bottom:5px}
+.editor input,.editor select{padding:5px;border:1px solid var(--line);background:var(--raised);color:var(--text);border-radius:3px;font:inherit;font-size:11px;min-width:0}
+.editor .row2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.editor button{padding:7px;border:1px solid var(--line);border-radius:3px;background:var(--raised);color:var(--text);cursor:pointer;font:inherit;font-size:11px}
+.editor .danger{border-color:var(--danger);color:var(--danger)}
+.editor .note{font-size:10px;color:var(--muted);line-height:1.45;border-top:1px solid var(--line);padding-top:8px;margin-top:10px}
+/* With a side bar open the content SHRINKS instead of sliding under it. */
+body.editing main{margin-right:var(--editorW)}
+body.drawer-open main{margin-right:min(650px,96vw)}
+.editor-head{display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--line);font-size:12px}
+.editor-head b{flex:1}
+body.editing .tag-row{cursor:pointer;outline:1px dashed var(--line)}
+body.editing .tag-row.sel{outline:2px solid var(--accent)}
+#panelSaveState{font-size:10px;font-weight:400;color:#cbd3d7}
+.comm-card{grid-column:1/-1;border-top:3px solid var(--accent)}.comm-card .list{grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}.field-card{grid-column:1/-1}.field-card .list{grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}.comm-card .badge{color:var(--muted)}
+/* Rows with a simulated/physical pair need ~370px: wide enough columns and a label that shrinks/wraps. */
+.field-card .list,.comm-card .list{grid-template-columns:repeat(auto-fit,minmax(min(400px,100%),1fr))}
+.tag-row.pair{grid-template-columns:minmax(0,1fr) 190px}
+.tag-label{flex-wrap:wrap}.tag-label>span{overflow-wrap:anywhere;min-width:0}
+@media(max-width:850px){.tag-row.pair{grid-template-columns:1fr}.pair-values{max-width:260px}}
+
+.operation-view .card{grid-column:1/-1}.operation-view #hmiList{grid-template-columns:repeat(auto-fit,minmax(min(330px,100%),1fr))}
+/* Operator workspace */
+:root{--bg:#edf1f4;--surface:#fff;--raised:#f6f9fa;--header:#fff;--headerText:#243541;--line:#dce3e8;--lineStrong:#b8c7d1;--muted:#72828d;--text:#243541;--accent:#147c80;--accentSoft:#e5f3f1;--ok:#208064;--okBg:#e7f3ed;--danger:#b24c50;--dangerBg:#faedef;--button:#e6edef;--buttonText:#263f4a;--shadow:0 3px 12px #22334408;--editorW:min(350px,94vw)}[data-theme=dark]{--bg:#171d22;--surface:#222b32;--raised:#1c252c;--header:#202930;--headerText:#e2eaf0;--line:#35434d;--lineStrong:#536a78;--muted:#97aab7;--text:#dce6ed;--accent:#63c3bb;--accentSoft:#253f40;--ok:#72c6a3;--okBg:#253e36;--danger:#df9194;--dangerBg:#493034;--button:#354751;--buttonText:#e3ecf1}
+header{height:auto;min-height:56px;padding:10px 16px;flex-wrap:wrap;gap:8px;border-color:var(--line)}h1{font-size:14px;font-weight:650;max-width:100%;min-width:150px}.top-button{border:1px solid var(--line);color:var(--text);background:var(--surface);border-radius:6px;font-size:11px;padding:7px 10px}.top-button:hover{background:var(--raised);border-color:var(--accent)}#editButton{background:var(--accent);color:#fff;border-color:var(--accent)}[data-theme=dark] #editButton{color:#12302d}.status{border:0;background:var(--dangerBg);color:var(--danger);border-radius:20px;font-weight:600}.status.online{background:var(--okBg);color:var(--ok)}.workspace-nav{display:flex;align-items:center;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:4;flex-wrap:wrap}.workspace-nav button{border:1px solid transparent;background:transparent;color:var(--muted);padding:6px 10px;border-radius:5px;font:inherit;font-size:11px;cursor:pointer}.workspace-nav button.active{background:var(--accentSoft);color:var(--accent);font-weight:650}.workspace-nav .runtime-controls{margin-left:auto;display:flex;gap:3px}.runtime-controls button{border-color:var(--line);color:var(--text)}.runtime-controls span{font:10px ui-monospace,monospace;color:var(--muted);align-self:center;padding-right:4px}.layout{gap:12px;padding:14px 16px;align-items:start}.card{border-radius:10px;padding:14px;box-shadow:var(--shadow);border-color:var(--line)}.card h2{font-size:11px;letter-spacing:.1em;color:var(--text);margin-bottom:10px}.monitor-card,.comm-card{border-top:1px solid var(--line)}.hint{line-height:1.6;font-size:10px}.tag-row{border-color:transparent;border-radius:7px;padding:9px;background:var(--raised)}.tag-row:hover{border-color:var(--line)}.tag-label{font-size:12px;font-weight:550}.badge{font-size:8px;font-weight:600;border-color:var(--line);border-radius:4px;padding:2px 5px;color:var(--muted)}.tag-path{font-size:9px;opacity:.8}.control{border-radius:6px;border-color:var(--line);min-height:32px;font-size:11px}.control.true{color:#fff}[data-theme=dark] .control.true{color:#143427}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}button:disabled{opacity:.45;cursor:default}.readonly{font-size:14px;font-weight:600}.tabs{border:0;gap:4px}.tab{border-color:transparent;background:var(--raised);border-radius:5px}.editor{top:0;z-index:20;padding:16px;box-shadow:-8px 0 35px #0002}.editor-actions{position:sticky;top:-16px;background:var(--surface);padding:12px 0;z-index:2}.editor button,.editor input,.editor select{border-radius:5px}.editor .primary{background:var(--accent);color:#fff}.editor-head{font-size:14px}.sim-panel{top:0;z-index:20}.card[hidden]{display:none}.compact .card{padding:10px}.compact .tag-row{padding:5px}.compact .tag-path{display:none}.compact .control{min-height:26px}.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);padding:10px 16px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 30px #0003;z-index:100;max-width:90vw;display:none}.toast.show{display:block}.toast.error{border-color:var(--danger)}#panelSaveState{color:var(--muted)}@media(max-width:850px){header{padding:8px 10px}.layout{padding:10px}.workspace-nav{padding:6px 10px}h1{flex-basis:100%;font-size:13px}.tag-row{grid-template-columns:minmax(0,1fr) 86px}.tag-row.pair{grid-template-columns:1fr}.monitor-card .list{grid-template-columns:repeat(auto-fit,minmax(min(245px,100%),1fr))}.workspace-nav .runtime-controls{margin-left:0}.editor{width:min(350px,90vw)}body.editing main{margin-right:0}.drawer.open{width:min(650px,96vw)}body.drawer-open main{margin-right:0}}
+
+</style>
+</head>
+<body>
+<header><h1 id="title">HPLC · BENCH</h1><span id="status" class="status">● DISCONNECTED</span><button id="settingsButton" class="top-button">⚙ Settings</button><button id="simButton" class="top-button">Simulation</button><span id="panelSaveState"></span><button id="editButton" class="top-button">Edit screen</button><button id="pidButton" class="top-button">Open P&amp;ID</button><button id="rawButton" class="top-button">Variables and trends</button><button id="themeButton" class="top-button">Dark theme</button></header>
+<nav class="workspace-nav" aria-label="HMI areas"><button data-section="operation" class="active">Operation</button><button data-section="signals">Signals and equipment</button><button data-section="communication">Communication</button><button data-section="all">All</button><div class="runtime-controls"><span id="runtimeScan"></span><button data-runtime="run" title="Run PLC">▶</button><button data-runtime="pause" title="Pause PLC">Ⅱ</button><button data-runtime="scan" title="Run one scan">+ Scan</button></div></nav><main class="layout">
+<section class="card monitor-card" data-panel-section="operation"><h2>Operation monitoring</h2><div class="hint">Follow the states and the main measurements of the equipment.</div><div id="monitoringList" class="list"></div></section>
+<section class="card" data-panel-section="operation"><h2>HMI</h2><div class="hint">Operator commands and indications. Use Edit screen to arrange its components.</div><div id="hmiTabs" class="tabs"></div><div id="hmiList" class="list"></div></section>
+<section class="card" data-panel-section="signals"><h2>Panel door</h2><div class="hint">Local physical inputs and outputs. Click or type freely; the logic may overwrite the value.</div><div id="panelList" class="list"></div></section>
+<section class="card" data-panel-section="signals"><h2>Customer interface</h2><div class="hint">DI/AI signals received from and DO/AO signals sent to the customer.</div><div id="interfaceList" class="list"></div></section>
+<section class="card field-card" data-panel-section="signals"><h2>Field / equipment</h2><div class="hint">Sensors, instruments and drives installed on the equipment.</div><div id="fieldList" class="list"></div></section>
+<section class="card comm-card" data-panel-section="communication"><h2>Communication — Modbus TCP/IP</h2><div class="hint">Tags of the Modbus interface. The badges show the address and the access seen by the master; the values reflect the PLC state.</div><div id="communicationList" class="list"></div></section>
+</main>
+<aside id="drawer" class="drawer"><div class="drawer-head"><h2>Variables and trends</h2><button id="clearWatch" class="top-button">Clear trend</button><button id="closeRaw" class="top-button">Close</button></div><div id="watchList" class="hint">Mark variables with ☆ in the list below.</div><canvas id="trend" height="150"></canvas><input id="search" class="search" placeholder="Filter by name or path..."><div id="raw" class="raw"></div></aside>
+<aside id="simPanel" class="sim-panel">
+<div class="sim-head"><b>Bench simulation</b><button id="closeSim" title="Close">✕</button></div>
+<div class="sim-switch"><span>Master switch <code id="simEnableName"></code></span><button id="simToggle" class="control">—</button></div>
+<div id="simHint" class="sim-hint"></div>
+<div id="simCode" class="sim-code">loading…</div>
+</aside>
+<aside id="editor" class="editor">
+<div class="editor-head"><b>Bench editor</b><button id="closeEditor" title="Close">✕</button></div>
+<div class="editor-actions">
+  <button id="savePanel" class="primary">Save</button>
+  <button id="undoPanel">Undo</button>
+  <button id="revertPanel">Discard</button>
+</div>
+<details open>
+  <summary>Selected item</summary>
+  <div id="itemProps"><div class="note">Click a row on the screen.</div></div>
+</details>
+<details>
+  <summary>Add tag</summary>
+  <label><span>tag</span><input id="newTag" list="catalog" placeholder="Status.Ready"></label>
+  <datalist id="catalog"></datalist>
+  <label><span>area</span><select id="newArea"></select></label>
+  <button id="addItem">Add</button>
+</details>
+<div class="editor-foot">
+  <div>Click a row to select it · <b>Esc</b> clears the selection · <b>Ctrl+Z</b> undoes</div>
+  <div>The <b>Communication</b> area is generated from <code>modbus.toml</code> at Build: changes made to it here are reverted.</div>
+</div>
+</aside>
+<script>
+/* i18n: the page is written in English; window.hplcLang = 'pt-BR' (injected by
+   the extension next to window.hplcViews) switches to the dictionary below. */
+const LANG=window.hplcLang==='pt-BR'?'pt-BR':'en';
+const PT_BR={
+  'HPLC · BENCH':'HPLC · BANCADA','● DISCONNECTED':'● DESCONECTADO','⚙ Settings':'⚙ Configurar','Simulation':'Simulação','Edit screen':'Editar tela','Exit editing':'Sair da edição',
+  'Open P&ID':'Abrir P&ID','Variables and trends':'Variáveis e tendências','Dark theme':'Tema escuro','Light theme':'Tema claro','HMI areas':'Áreas da IHM',
+  'Operation':'Operação','Signals and equipment':'Sinais e equipamento','Communication':'Comunicação','All':'Tudo','Run PLC':'Executar PLC','Pause PLC':'Pausar PLC','Run one scan':'Executar um scan',
+  'Operation monitoring':'Monitoramento da operação','Follow the states and the main measurements of the equipment.':'Acompanhe os estados e as principais medições do equipamento.',
+  'HMI':'IHM','Operator commands and indications. Use Edit screen to arrange its components.':'Comandos e indicações do operador. Use Editar tela para organizar seus componentes.',
+  'Panel door':'Porta do painel','Local physical inputs and outputs. Click or type freely; the logic may overwrite the value.':'Entradas e saídas físicas locais. Clique ou digite livremente; a lógica pode sobrescrever o valor.',
+  'Customer interface':'Interface com cliente','DI/AI signals received from and DO/AO signals sent to the customer.':'Sinais DI/AI recebidos e DO/AO enviados ao cliente.',
+  'Field / equipment':'Campo / equipamento','Sensors, instruments and drives installed on the equipment.':'Sensores, instrumentos e acionamentos instalados no equipamento.',
+  'Communication — Modbus TCP/IP':'Comunicação — Modbus TCP/IP','Tags of the Modbus interface. The badges show the address and the access seen by the master; the values reflect the PLC state.':'Tags da interface Modbus. Os marcadores indicam o endereço e o acesso visto pelo mestre; os valores refletem o estado do PLC.',
+  'Clear trend':'Limpar tendência','Close':'Fechar','Mark variables with ☆ in the list below.':'Marque variáveis com ☆ na lista abaixo.','Filter by name or path...':'Filtrar por nome ou caminho...',
+  'Bench simulation':'Simulação de bancada','Master switch':'Chave mestra','loading…':'carregando…','Bench editor':'Editor da bancada','Save':'Salvar','Undo':'Desfazer','Discard':'Descartar',
+  'Selected item':'Item selecionado','Click a row on the screen.':'Clique numa linha da tela.','Add tag':'Acrescentar tag','area':'quadro','Add':'Acrescentar',
+  'Click a row to select it ·':'Clique na linha para selecionar ·','clears the selection ·':'desseleciona ·','undoes':'desfaz','The':'O quadro','area is generated from':'é gerado de',
+  'at Build: changes made to it here are reverted.':'no Build: mudança feita nele aqui volta atrás.',
+  'Command refused':'Comando recusado','Leave editing mode to operate.':'Saia da edição para operar.','Tag unavailable or read-only.':'Tag indisponível ou somente leitura.',
+  'Value incompatible with {type}':'Valor incompatível com {type}','Hold to actuate. While paused, the pulse is released after the next scan.':'Segure para acionar. Em pausa, o pulso é liberado após o próximo scan.',
+  'Project':'Projeto','TAG MISSING':'TAG AUSENTE','Active':'Ativo','Inactive':'Inativo','TAG NOT FOUND':'TAG NÃO ENCONTRADA','Switch: click to toggle TRUE/FALSE.':'Switch: clique para alternar TRUE/FALSE.',
+  'Value outside the configured range.':'Valor fora da faixa configurada.','SIMULATED':'SIMULADO','SIM':'SIM',
+  'Simulated point: the program is using the simulated value.':'Ponto simulado: o programa está usando o valor simulado.',
+  'Field point: the simulated value is following the real one.':'Ponto no campo: o valor simulado está acompanhando o real.',
+  ' Click to toggle ({tag}).':' Clique para alternar ({tag}).',' Turn it on/off in the input area, not here.':' Ligar/desligar é no quadro da entrada, não aqui.',
+  'simulated':'simulado','physical':'físico','Main':'Principal','Add to/remove from the trend':'Adicionar/remover da tendência',
+  'RUNNING':'RODANDO','PAUSED':'PAUSADO','ROUTINE STEP':'PASSO DE ROTINA','LINE STEP':'PASSO DE LINHA','● ERROR · {message}':'● ERRO · {message}',
+  'Monitoring':'Monitoramento','Communication (Modbus)':'Comunicação Modbus','changed':'alterado','Choose a tag from the catalog.':'Escolha uma tag do catálogo.',
+  'label':'rótulo','kind':'tipo','writable':'escrevível','The runtime only allows reading this tag.':'O runtime permite apenas leitura desta tag.',
+  'Active text':'Texto ativo','Inactive text':'Texto inativo','Minimum':'Mínimo','Maximum':'Máximo','unit':'unidade','decimals':'casas','badge':'badge','address':'endereço',
+  'simulation · flag':'simulação · flag','simulation · value':'simulação · valor','link simulation':'vincular simulação','Fills the fields above from the object of this tag.':'Preenche os campos acima a partir do objeto desta tag.',
+  'this tag has no simulation in the catalog':'esta tag não tem simulação no catálogo','tab':'aba','↑ up':'↑ subir','↓ down':'↓ descer','Remove from screen':'Remover da tela',
+  'This area is derived from modbus.toml at build: edit the map, not the screen.':'Este quadro é derivado de modbus.toml no build: edite o mapa, não a tela.',
+  'Choose a tag available in the catalog.':'Escolha uma tag disponível no catálogo.','saving...':'salvando...','Runtime did not answer in JSON; saving unavailable':'Runtime não respondeu em JSON; salvamento indisponível',
+  'saved':'salvo','ERROR: {message} — edits kept on this screen':'ERRO: {message} — edições mantidas nesta tela','nothing to undo':'nada para desfazer','undone':'desfeito','undone — back to the saved state':'desfeito — no estado salvo',
+  'What the simulation does is the code itself: below is {file} as it is on disk, with the value each line writes. Highlighted line = its value changed in the last cycle.':'O que a simulação faz é o próprio código: abaixo está {file} como está no disco, com o valor que cada linha escreve. Linha destacada = o valor dela mudou no último ciclo.',
+  'ON':'LIGADA','OFF':'DESLIGADA','could not read {file}: {message}':'não consegui ler {file}: {message}','Could not save the screen.':'Não foi possível salvar a tela.'
+};
+function t(text,params){let out=LANG==='pt-BR'&&PT_BR[text]!==undefined?PT_BR[text]:text;if(params)out=out.replace(/\{(\w+)\}/g,(whole,key)=>params[key]!==undefined?String(params[key]):whole);return out}
+/* Translates the static markup once: text nodes and the title/placeholder/aria-label attributes. */
+function translateStatic(root){
+  document.documentElement.lang=LANG;if(LANG==='en')return;
+  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const nodes=[];
+  while(walker.nextNode())nodes.push(walker.currentNode);
+  for(const node of nodes){const parent=node.parentElement?.tagName;if(parent==='SCRIPT'||parent==='STYLE')continue;const text=node.nodeValue.trim();if(text&&PT_BR[text]!==undefined)node.nodeValue=node.nodeValue.replace(text,PT_BR[text])}
+  for(const attribute of ['title','placeholder','aria-label'])for(const element of root.querySelectorAll('['+attribute+']'))element.setAttribute(attribute,t(element.getAttribute(attribute)));
+}
+translateStatic(document.body);
+/* Area keys of panel.json. Projects created before the English release use
+   "ihm" and "comunicacao" (legacy); both spellings are read, and an existing
+   project keeps the key it already has when the screen is saved. */
+const AREA_ALIASES={hmi:['hmi','ihm'],communication:['communication','comunicacao']};
+function areaKey(name){const keys=AREA_ALIASES[name]||[name],areas=config?.areas||{};return keys.find(key=>Array.isArray(areas[key]))||keys[0]}
+function areaItems(name){return config?.areas?.[areaKey(name)]||[]}
+const $=id=>document.getElementById(id),variables=new Map(),widgets=[],rawRows=new Map(),latchedPulses=new Map(),history=new Map();let watchPaths=new Set(JSON.parse((localStorage.getItem('hplc-watch')||localStorage.getItem('plc-codex-watch'))||'[]')),config,state={mode:'run',scan:0},variableEvents,stateEvents,currentTab=null;
+function applyTheme(theme){document.documentElement.dataset.theme=theme;$('themeButton').textContent=theme==='dark'?t('Light theme'):t('Dark theme');localStorage.setItem('hplc-theme',theme)}
+function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark')}
+async function api(path){const response=await fetch(path,{cache:'no-store'}),data=await response.json();if(!response.ok||data.ok===false)throw Error(data.error||t('Command refused'));return data}
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const writeQueues=new Map(),activePushes=new Set();let panelOnline=false,toastTimer,panelSavedSnapshot='';
+const runtimeWritable=variable=>Boolean(variable&&(variable.writable===true||variable.writable===1));
+function notify(message,error=false){const box=$('toast');box.textContent=message;box.className='toast show'+(error?' error':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>box.className='toast',5000)}
+async function write(tag,value,cleanup=false){const variable=variables.get(tag);if(!runtimeWritable(variable)||(!cleanup&&(!panelOnline||editingScreen))){notify(editingScreen?t('Leave editing mode to operate.'):t('Tag unavailable or read-only.'),true);return {ok:false}}if(!Number.isFinite(Number(value))||(!['REAL','LREAL','BOOL'].includes(variable.type)&&!Number.isInteger(Number(value)))){notify(t('Value incompatible with {type}',{type:variable.type}),true);return {ok:false}}const previous=writeQueues.get(tag)||Promise.resolve();const next=previous.catch(()=>{}).then(async()=>{const result=await api('/api/set?tag='+encodeURIComponent(tag)+'&val='+encodeURIComponent(value));variable.value=variable.type==='BOOL'?Boolean(Number(value)):Number(value);return result});writeQueues.set(tag,next);updateWidgets();try{return await next}catch(error){notify(error.message,true);return {ok:false,error:error.message}}finally{if(writeQueues.get(tag)===next)writeQueues.delete(tag);updateWidgets()}}
+function pushBehavior(control,tag){control.classList.add('pushbutton');control.title=t('Hold to actuate. While paused, the pulse is released after the next scan.');const down=async event=>{if(editingScreen||!panelOnline||!runtimeWritable(variables.get(tag))||event.repeat)return;if(event.type==='keydown'&&![' ','Enter'].includes(event.key))return;event.preventDefault();if(state.mode!=='run'){const active=variables.get(tag)?.value===true;const result=await write(tag,active?0:1);if(result.ok){if(active)latchedPulses.delete(tag);else latchedPulses.set(tag,state.scan)}return}if(activePushes.has(tag))return;activePushes.add(tag);if(event.pointerId!==undefined)control.setPointerCapture?.(event.pointerId);const result=await write(tag,1);if(!result.ok)activePushes.delete(tag)};const release=event=>{if(event?.type==='keyup'&&![' ','Enter'].includes(event.key))return;if(activePushes.has(tag)){activePushes.delete(tag);write(tag,0,true)}};control.onpointerdown=down;control.onpointerup=release;control.onpointercancel=release;control.onlostpointercapture=release;control.onkeydown=down;control.onkeyup=release}
+window.addEventListener('blur',()=>{for(const tag of activePushes){activePushes.delete(tag);write(tag,0,true)}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)for(const tag of activePushes){activePushes.delete(tag);write(tag,0,true)}});
+/* Banner: project — view. The project name is the JSON title; an old suffix
+   such as "· bench" is dropped so the view name is not repeated. */
+function banner(){
+  const name=String(config.title||t('Project')).split('·')[0].trim()||t('Project');
+  const text=name+' · '+t('HMI');
+  $('title').textContent=text;document.title=text;
+}
+function precision(variable,item){if(Number.isInteger(item?.precision))return Math.max(0,Math.min(8,item.precision));return ['REAL','LREAL'].includes(variable?.type)?Math.max(0,Math.min(8,Number(config?.display?.realPrecision??2))):0}
+function formatted(variable,item){if(!variable)return '';if(['REAL','LREAL'].includes(variable.type))return Number(variable.value).toFixed(precision(variable,item));return String(variable.value)}
+function valueText(variable,item){if(!variable)return t('TAG MISSING');const mapped=item?.valueLabels?.[String(variable.value)];if(mapped!==undefined)return mapped;if(variable.type==='BOOL')return variable.value?t('Active'):t('Inactive');const suffix=item?.unit?' '+item.unit:'';return formatted(variable,item)+suffix}
+function makeControl(item,variable,target,canEdit){canEdit=Boolean(canEdit&&runtimeWritable(variable)&&!['lamp','display'].includes(item.kind));let control;if(!variable){control=document.createElement('span');control.className='missing-value';control.textContent=t('TAG NOT FOUND');return control}if(!canEdit){control=document.createElement('span');control.className='readonly';control.textContent=valueText(variable,item);return control}if(variable.type==='BOOL'){control=document.createElement('button');control.className='control';const kind=item.kind==='momentary'?'pushbutton':item.kind==='toggle'?'switch':item.kind;if(kind==='pushbutton')pushBehavior(control,target);else{control.title=t('Switch: click to toggle TRUE/FALSE.');control.onclick=()=>write(target,variables.get(target)?.value?0:1)}}else if(item.valueLabels&&Object.keys(item.valueLabels).length){
+/* An item with valueLabels shows text, not a number. A writable one becomes a
+   list with the same texts, so the meaning stays on screen and writing is
+   still possible. */
+control=document.createElement('select');control.className='control';
+for(const [value,text] of Object.entries(item.valueLabels)){
+  const option=document.createElement('option');option.value=value;option.textContent=text;control.append(option);
+}
+control.value=String(variable.value);
+control.onchange=()=>write(target,control.value);
+}else{control=document.createElement('input');control.className='control';control.type='number';control.step=10**-precision(variable,item);control.value=formatted(variable,item);if(item.min!==undefined)control.min=item.min;if(item.max!==undefined)control.max=item.max;control.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();control.blur()}};control.onchange=()=>{if(control.value!==''&&control.checkValidity())write(target,control.value);else{notify(t('Value outside the configured range.'),true);control.value=formatted(variables.get(target),item)}}}return control}
+/* Simulation link of a row, DECLARED in panel.json:
+     "simulation_flag": {"flag":"<enable tag>", "value":"<value tag>"}
+   flag  = turns the simulation of that point on/off; the chip shows and commands it.
+   value = what the operator edits while the point is simulated (input value
+           used instead of the channel, or forced value of an output).
+   Nothing is guessed: a row without "simulation_flag" has no chip. */
+function itemSim(item){const s=item&&item.simulation_flag;return s&&typeof s==='object'?s:null}
+function simActive(item){const s=itemSim(item);return Boolean(s&&s.flag&&variables.get(s.flag)?.value)}
+function simFlagTag(item){const s=itemSim(item);return s&&s.flag?s.flag:null}
+/* Simulated point with "value": the operator edits the simulated value, which is
+   what the program is using. Editing it there is more honest than leaving the
+   tag nobody reads editable. */
+function paintSimChip(item,chip){
+  if(!chip)return;
+  const active=simActive(item),flag=simFlagTag(item),commandable=chip.tagName==='BUTTON';
+  chip.textContent=active?t('SIMULATED'):t('SIM');
+  chip.className='chip-sim'+(active?'':' off');
+  chip.title=(active?t('Simulated point: the program is using the simulated value.')
+                   :t('Field point: the simulated value is following the real one.'))
+    +(commandable?t(' Click to toggle ({tag}).',{tag:flag})
+                :t(' Turn it on/off in the input area, not here.'));
+}
+function renderItem(item,parent){
+  const sim=itemSim(item),pair=Boolean(sim&&sim.value&&!sim.readonly);
+  const row=document.createElement('div');row.className='tag-row'+(pair?' pair':'');
+  const info=document.createElement('div');info.className='tag-info';
+  const label=document.createElement('div');label.className='tag-label';
+  const badge=document.createElement('span');badge.className='badge';
+  badge.textContent=[item.ioType,item.address].filter(Boolean).join(' · ')||'VAR';
+  const text=document.createElement('span');text.textContent=item.label||item.tag.split('.').pop();
+  label.append(badge,text);
+  /* The chip is the simulation command of that point — except where the item
+     declares "readonly": in monitoring the simulation is only announced, because
+     turning it on or off belongs to the input area, not to the operation screen. */
+  let chip=null;
+  if(sim&&sim.flag){
+    chip=document.createElement(sim.readonly?'span':'button');
+    if(!sim.readonly)chip.onclick=()=>{const flag=simFlagTag(item);
+      if(flag)write(flag,variables.get(flag)?.value?0:1)};
+    paintSimChip(item,chip);label.append(chip);
+  }
+  const path=document.createElement('code');path.className='tag-path';path.textContent=item.tag;
+  info.append(label,path);
+  /* A simulable point shows both values side by side: the simulated one (chosen
+     by the operator) and the physical/logical one (the real one). The highlighted
+     one is what the program is using now. */
+  const sides=[];
+  if(pair){
+    const box=document.createElement('div');box.className='pair-values';
+    for(const [target,caption,canEdit] of [[sim.value,t('simulated'),true],
+                                           [item.tag,t('physical'),item.writable!==false]]){
+      const side=document.createElement('div');side.className='pair-side';
+      const name=document.createElement('span');name.className='pair-caption';name.textContent=caption;
+      const control=makeControl(item,variables.get(target),target,canEdit);
+      control.title=(control.title?control.title+' ':'')+'('+target+')';
+      side.append(name,control);box.append(side);
+      sides.push({target,control,side,simulated:target===sim.value});
+    }
+    row.append(info,box);
+  }else{
+    const control=makeControl(item,variables.get(item.tag),item.tag,item.writable!==false);
+    sides.push({target:item.tag,control,side:null,simulated:false});
+    row.append(info,control);
+  }
+  parent.append(row);
+  widgets.push({item,row,chip,sides});
+}
+function renderArea(name,listId){const parent=$(listId);parent.replaceChildren();for(const item of areaItems(name))renderItem(item,parent)}
+const tabOf=item=>item.tab||t('Main');
+function renderHmi(){const items=areaItems('hmi'),tabs=[...new Set(items.map(tabOf))];if(!tabs.includes(currentTab))currentTab=tabs[0];$('hmiTabs').replaceChildren();for(const tab of tabs){const button=document.createElement('button');button.className='tab'+(tab===currentTab?' active':'');button.textContent=tab;button.onclick=()=>{currentTab=tab;renderAll()};$('hmiTabs').append(button)}$('hmiList').replaceChildren();for(const item of items.filter(item=>tabOf(item)===currentTab))renderItem(item,$('hmiList'))}
+function renderAll(){widgets.length=0;renderArea('monitoring','monitoringList');renderHmi();renderArea('panel','panelList');renderArea('interface','interfaceList');renderArea('field','fieldList');renderArea('communication','communicationList');updateWidgets();if(typeof setPanelSection==='function')setPanelSection(panelSection)}
+function updateWidgets(){for(const w of widgets){
+  const item=w.item,active=simActive(item);
+  paintSimChip(item,w.chip);
+  w.row.classList.toggle('simulated',active);
+  let missing=false;
+  for(const side of w.sides){
+    const variable=variables.get(side.target);
+    if(side.side)side.side.classList.toggle('active',side.simulated===active);
+    if(!variable){missing=true;continue}
+    const control=side.control;
+    if(control.tagName==='BUTTON'){control.disabled=editingScreen||!panelOnline||!runtimeWritable(variable)||(!control.classList.contains('pushbutton')&&writeQueues.has(side.target));control.textContent=valueText(variable,item);control.classList.toggle('true',Boolean(variable.value))}
+    else if(control.tagName==='INPUT'){control.disabled=editingScreen||!panelOnline||!runtimeWritable(variable);if(document.activeElement!==control)control.value=formatted(variable,item)}
+    else if(control.tagName==='SELECT'){control.disabled=editingScreen||!panelOnline||!runtimeWritable(variable);if(document.activeElement!==control)control.value=String(variable.value)}
+    else control.textContent=valueText(variable,item);
+  }
+  w.row.classList.toggle('missing',missing);
+}}
+function applyVariables(list){for(const variable of list)variables.set(variable.path,variable);for(const tag of watchPaths){const variable=variables.get(tag);if(!variable)continue;const series=history.get(tag)||[];series.push(Number(variable.type==='BOOL'?!!variable.value:variable.value));if(series.length>240)series.shift();history.set(tag,series)}if(!config)return;if(!widgets.length)renderAll();else updateWidgets();updateSimPanel();if($('drawer').classList.contains('open')){updateRaw();drawTrend()}}
+function rawControl(variable){if(!runtimeWritable(variable)){const read=document.createElement('span');read.className='readonly';read.textContent=valueText(variable);return read}if(variable.type==='BOOL'){const button=document.createElement('button');button.textContent=variable.value?'TRUE':'FALSE';button.className=variable.value?'true':'';button.onclick=()=>write(variable.path,variables.get(variable.path)?.value?0:1);return button}const input=document.createElement('input');input.type='number';input.step=10**-precision(variable);input.value=formatted(variable);input.onkeydown=e=>{if(e.key==='Enter'){write(variable.path,input.value);input.blur()}};input.onchange=()=>write(variable.path,input.value);return input}
+function toggleWatch(tag){watchPaths.has(tag)?watchPaths.delete(tag):watchPaths.add(tag);history.delete(tag);localStorage.setItem('hplc-watch',JSON.stringify([...watchPaths]));renderRaw();drawTrend()}
+/* The drawer used to rebuild every catalog row on each variables frame — the
+   bottleneck of the page on large projects. Now the structure is built when it
+   opens (or when the filter changes) and each frame only writes values, through
+   the rows kept in rawRows. */
+/* An array tag is opaque in the raw list: Instruments[1] does not say which
+   instrument it is. Projects usually name the indices with global constants
+   (LT_TANK = 1), and those constants are in the catalog — so the list shows the
+   index name next to it, without a mirrored tag. */
+function indexName(path){
+  const m=/\[(\d+)\]/.exec(path);
+  if(!m)return '';
+  const value=Number(m[1]);
+  for(const [name,variable] of variables)
+    if(/^[A-Z][A-Z0-9_]*$/.test(name)&&!name.startsWith('NUM_')&&variable.value===value)return name;
+  return '';
+}
+function renderRaw(){
+  const filter=$('search').value.toLowerCase();
+  const visible=[...variables.values()].filter(v=>v.path.toLowerCase().includes(filter))
+    .sort((a,b)=>a.path.localeCompare(b.path));
+  $('raw').replaceChildren();rawRows.clear();
+  for(const variable of visible){
+    const row=document.createElement('div');row.className='raw-row';
+    const star=document.createElement('button');star.className='watch-star';
+    star.textContent=watchPaths.has(variable.path)?'★':'☆';
+    star.title=t('Add to/remove from the trend');star.onclick=()=>toggleWatch(variable.path);
+    const path=document.createElement('code');path.textContent=variable.path;
+    const index=indexName(variable.path);
+    if(index){const note=document.createElement('span');note.className='hint';
+      note.style.margin='0';note.textContent=index;path.append(' · ');path.append(note)}
+    const control=rawControl(variable);
+    row.append(star,path,control);$('raw').append(row);
+    rawRows.set(variable.path,{control,star});
+  }
+}
+function updateRaw(){
+  for(const [path,row] of rawRows){
+    const variable=variables.get(path);if(!variable)continue;
+    row.star.textContent=watchPaths.has(path)?'★':'☆';
+    if(row.control.tagName==='BUTTON'){
+      row.control.textContent=variable.value?'TRUE':'FALSE';
+      row.control.className=variable.value?'true':'';
+    }else if(row.control.tagName==='INPUT'){if(document.activeElement!==row.control)row.control.value=formatted(variable)}else row.control.textContent=valueText(variable);
+  }
+}
+function drawTrend(){const canvas=$('trend'),ratio=devicePixelRatio||1,width=Math.max(260,canvas.clientWidth),height=150;canvas.width=width*ratio;canvas.height=height*ratio;const c=canvas.getContext('2d');c.scale(ratio,ratio);const style=getComputedStyle(document.documentElement),line=style.getPropertyValue('--lineStrong'),text=style.getPropertyValue('--text');c.strokeStyle=line;for(let y=30;y<height;y+=30){c.beginPath();c.moveTo(0,y+.5);c.lineTo(width,y+.5);c.stroke()}const colors=['#397a9b','#b56c2c','#438055','#a54848','#745a9d','#287f7f'],selected=[...watchPaths].map(tag=>variables.get(tag)).filter(Boolean).slice(0,6);$('watchList').textContent=selected.length?selected.map(v=>v.path).join(' · '):t('Mark variables with ☆ in the list below.');selected.forEach((v,i)=>{const values=history.get(v.path)||[];if(values.length>1){let min=Math.min(...values),max=Math.max(...values);if(min===max){min-=1;max+=1}c.beginPath();c.strokeStyle=colors[i];c.lineWidth=1.6;values.forEach((n,j)=>{const x=j/239*width,y=height-5-(n-min)/(max-min)*(height-10);j?c.lineTo(x,y):c.moveTo(x,y)});c.stroke()}c.fillStyle=colors[i];c.fillRect(5,5+i*16,9,9);c.fillStyle=text;c.font='11px sans-serif';c.fillText(v.path.split('.').pop()+' = '+valueText(v),18,14+i*16)})}
+$('rawButton').onclick=()=>{$('drawer').classList.add('open');renderRaw();drawTrend()};$('closeRaw').onclick=()=> $('drawer').classList.remove('open');$('clearWatch').onclick=()=>{watchPaths.clear();history.clear();localStorage.removeItem('plc-codex-watch');renderRaw();drawTrend()};$('search').oninput=renderRaw;$('themeButton').onclick=()=>{toggleTheme();drawTrend()};function openView(which,fallback){const tab=window.open('about:blank','_blank');(window.hplcViews?.[which]?Promise.resolve(window.hplcViews):fetch('/api/views').then(r=>r.ok?r.json():Promise.reject())).then(v=>v[which]||fallback).catch(()=>fallback).then(port=>{const url=location.protocol+'//'+location.hostname+':'+port;if(tab)tab.location=url;else window.open(url,'_blank')})};$('pidButton').onclick=()=>PlcSettings.navigate('pid',()=>openView('pid',Number(location.port)+1));
+const RUN_MODES={run:'RUNNING',paused:'PAUSED',routine:'ROUTINE STEP',line:'LINE STEP'};
+async function boot(){config=await api('/api/panel-config');panelSavedSnapshot=JSON.stringify(config);applyTheme((localStorage.getItem('hplc-theme')||localStorage.getItem('plc-codex-theme'))||config.display?.theme||'light');banner();const initial=await api('/api/variables');panelOnline=true;document.body.classList.toggle('compact',config.display?.density==='compact');applyVariables(initial.variables||[]);renderAll();variableEvents=new EventSource('/api/events/variables');variableEvents.onmessage=event=>{try{panelOnline=true;applyVariables(JSON.parse(event.data).variables||[])}catch(_){}};stateEvents=new EventSource('/api/events/state');stateEvents.onmessage=event=>{try{const previousScan=state.scan;state=JSON.parse(event.data);$('runtimeScan').textContent='scan '+state.scan;if(state.scan!==previousScan&&latchedPulses.size){for(const [tag,armedAt] of latchedPulses)if(state.scan>armedAt){latchedPulses.delete(tag);write(tag,0)}}$('status').textContent='● ONLINE · '+(RUN_MODES[state.mode]?t(RUN_MODES[state.mode]):state.mode)+' · scan '+state.scan;$('status').className='status online'}catch(_){}};stateEvents.onerror=()=>{panelOnline=false;updateWidgets();$('status').textContent=t('● DISCONNECTED');$('status').className='status'}}boot().catch(error=>{$('status').textContent=t('● ERROR · {message}',{message:error.message})});window.addEventListener('pagehide',()=>{variableEvents?.close();stateEvents?.close()});window.addEventListener('beforeunload',event=>{if(panelSavedSnapshot&&JSON.stringify(config)!==panelSavedSnapshot){event.preventDefault();event.returnValue=''}});
+</script>
+<script>
+/* ------------------------------------------------------- screen editor
+   Edits which tags appear in each area and how, and saves panel/panel.json
+   through the runtime (POST /api/save-config, 127.0.0.1 only). Outside editing
+   mode nothing here runs: the bench stays exactly as it was. */
+const AREAS=[['monitoring','monitoringList','Monitoring'],['hmi','hmiList','HMI'],
+  ['panel','panelList','Panel door'],['interface','interfaceList','Customer interface'],
+  ['field','fieldList','Field / equipment'],['communication','communicationList','Communication (Modbus)']];
+const KINDS=['lamp','toggle','momentary','number'];
+/* The badge is a signal-origin label, not free text: typing "Dl" instead of
+   "DI" would go unnoticed and make the screen inconsistent. The list joins the
+   default values with the ones the project already uses (including the
+   generated Modbus map). INTERNO/IHM/REDE/SIMU are legacy values of older projects. */
+const BADGES=['INTERNAL','HMI','DCS','NETWORK','SIM','STATUS','DI','DO','AI','AO','COIL RW','DISC R','IREG R','HREG RW','INTERNO','IHM','REDE','SIMU'];
+function availableBadges(current){
+  const used=new Set();
+  for(const [area] of AREAS)
+    for(const item of areaItems(area))
+      if(item.ioType)used.add(item.ioType);
+  const list=[...new Set([...BADGES,...used])].sort();
+  if(current&&!list.includes(current))list.unshift(current);
+  return ['',...list];
+}
+function existingTabs(){
+  return [...new Set(areaItems('hmi').map(tabOf))];
+}
+let editingScreen=false,selection=null,undoStack=[];
+const markChanged=()=>{undoStack.push(JSON.parse(JSON.stringify(config)));if(undoStack.length>40)undoStack.shift();setSaveState(t('changed'))};
+function setSaveState(text){$('panelSaveState').textContent=text?'· '+text:''}
+function redraw(){renderAll();if(editingScreen)decorateRows()}
+function areaList(area){const key=areaKey(area);config.areas||={};config.areas[key]||=[];return config.areas[key]}
+function selectedItem(){return selection?areaItems(selection.area)[selection.index]:null}
+
+/* The current tab filters the HMI area, so the DOM position is not the array
+   index — the map below rebuilds the link with the same rule as renderHmi. */
+function visibleIndices(area){
+  const items=areaItems(area);
+  if(area!=='hmi')return items.map((_,i)=>i);
+  return items.map((item,i)=>[item,i]).filter(([item])=>tabOf(item)===currentTab).map(([,i])=>i);
+}
+function decorateRows(){
+  for(const [area,listId] of AREAS){
+    const map=visibleIndices(area);
+    [...$(listId).children].forEach((row,position)=>{
+      const index=map[position];
+      row.classList.toggle('sel',selection&&selection.area===area&&selection.index===index);
+      row.addEventListener('click',event=>{
+        if(!editingScreen)return;
+        event.preventDefault();event.stopPropagation();
+        selection={area,index};redraw();renderItemProps();
+      },{capture:true});
+    });
+  }
+}
+function itemField(caption,value,apply,options,suggestions){
+  const row=document.createElement('label');row.append(document.createTextNode(caption));
+  let input;
+  if(options){
+    input=document.createElement('select');
+    for(const option of options){const o=document.createElement('option');o.value=o.textContent=option;input.append(o)}
+    input.value=value===undefined?options[0]:value;
+  }else if(typeof value==='boolean'){
+    input=document.createElement('input');input.type='checkbox';input.checked=value;
+  }else{
+    input=document.createElement('input');input.value=value===undefined||value===null?'':value;
+    if(suggestions&&suggestions.length){
+      // Free text with suggestions: a new tab must be possible, but the
+      // existing ones must be one click away.
+      const list=document.createElement('datalist');
+      list.id='suggestions-'+caption.replace(/\W+/g,'');
+      for(const option of suggestions){const o=document.createElement('option');o.value=option;list.append(o)}
+      input.setAttribute('list',list.id);row.append(list);
+    }
+  }
+  input.onchange=()=>{markChanged();apply(input.type==='checkbox'?input.checked:input.value);redraw();renderItemProps()};
+  row.append(input);return row;
+}
+function moveItem(step){
+  const list=areaList(selection.area),target=selection.index+step;
+  if(target<0||target>=list.length)return;
+  markChanged();
+  [list[selection.index],list[target]]=[list[target],list[selection.index]];
+  selection={...selection,index:target};redraw();renderItemProps();
+}
+/* Simulation link suggestion. Conventions: a process object keeps
+   SimEnable/SimValue next to its value; an IO channel has the pair
+   SimEnable<Structure>.<field> / Sim<Structure>.<field>. The Portuguese names
+   are the legacy conventions of older projects. */
+const SIM_OBJECT_CONVENTIONS=[
+  {flag:'SimEnable',values:['SimValue','SimRunningFeedback']},
+  {flag:'HabilitaSimulacao',values:['ValorSimulado','RetornoSimuladoLigado']} // legacy
+];
+const SIM_CHANNEL_CONVENTIONS={
+  DigitalInputs:['SimEnableDigitalInput','SimDigitalInput'],
+  DigitalOutputs:['SimEnableDigitalOutput','SimDigitalOutput'],
+  InputsDigitais:['SimuHabilitaEntradaDigital','SimuEntradaDigital'], // legacy
+  OutputsDigitais:['SimuHabilitaSaidaDigital','SimuSaidaDigital'] // legacy
+};
+function suggestSim(item){
+  const path=String(item.tag||''),dot=path.lastIndexOf('.');
+  if(dot<0)return null;
+  const base=path.slice(0,dot),field=path.slice(dot+1);
+  for(const convention of SIM_OBJECT_CONVENTIONS){
+    const sibling=base+'.'+convention.flag;
+    if(!variables.has(sibling))continue;
+    const suggested={flag:sibling};
+    for(const name of convention.values.map(value=>base+'.'+value))
+      if(variables.has(name))suggested.value=name;
+    return suggested;
+  }
+  const pair=SIM_CHANNEL_CONVENTIONS[base];
+  if(pair&&variables.has(pair[0]+'.'+field))
+    return {flag:pair[0]+'.'+field,value:pair[1]+'.'+field};
+  return null;
+}
+function renderItemProps(){
+  const box=$('itemProps');box.replaceChildren();
+  const item=selectedItem();
+  if(!item){const note=document.createElement('div');note.className='note';note.textContent=t('Click a row on the screen.');box.append(note);return}
+  box.append(itemField('tag',item.tag,v=>{if(!variables.has(v)){notify(t('Choose a tag from the catalog.'),true);return}item.tag=v;if(!runtimeWritable(variables.get(v)))item.writable=false},null,[...variables.keys()].sort()));
+  box.append(itemField(t('label'),item.label,v=>item.label=v||undefined));
+  box.append(itemField(t('kind'),item.kind,v=>item.kind=v,KINDS));
+  box.append(itemField(t('writable'),item.writable===true,v=>{if(v&&!runtimeWritable(variables.get(item.tag))){notify(t('The runtime only allows reading this tag.'),true);item.writable=false}else item.writable=v}));
+  if(variables.get(item.tag)?.type==='BOOL'){for(const [key,label]of [['true','Active text'],['false','Inactive text']])box.append(itemField(t(label),item.valueLabels?.[key],v=>{item.valueLabels={...item.valueLabels,[key]:v}}))}
+  for(const [key,label]of [['min','Minimum'],['max','Maximum']])box.append(itemField(t(label),item[key],v=>{if(v==='')delete item[key];else if(Number.isFinite(Number(v)))item[key]=Number(v)}));
+  box.append(itemField(t('unit'),item.unit,v=>item.unit=v||undefined));
+  box.append(itemField(t('decimals'),item.precision,v=>item.precision=v===''?undefined:Number(v)));
+  box.append(itemField(t('badge'),item.ioType,v=>item.ioType=v||undefined,availableBadges(item.ioType)));
+  box.append(itemField(t('address'),item.address,v=>item.address=v||undefined));
+  /* "simulation_flag" block of the row. "link simulation" fills it from the
+     object of this tag, but what counts is what is written in panel.json. */
+  const setSim=(key,value)=>{const s={...(item.simulation_flag||{})};
+    if(value)s[key]=value;else delete s[key];
+    item.simulation_flag=Object.keys(s).length?s:undefined};
+  const fromCatalog=test=>[...variables.keys()].filter(test).sort();
+  box.append(itemField(t('simulation · flag'),item.simulation_flag?.flag,v=>setSim('flag',v),null,
+    fromCatalog(c=>/SimEnable|HabilitaSimulacao$|^SimuHabilita/.test(c))));
+  box.append(itemField(t('simulation · value'),item.simulation_flag?.value,v=>setSim('value',v),null,
+    fromCatalog(c=>/SimValue|^SimDigital|Simulado|^SimuEntradaDigital|^SimuSaida/.test(c))));
+  const link=document.createElement('button');link.textContent=t('link simulation');
+  link.title=t('Fills the fields above from the object of this tag.');
+  link.onclick=()=>{const suggested=suggestSim(item);
+    if(!suggested){setSaveState(t('this tag has no simulation in the catalog'));return}
+    markChanged();item.simulation_flag=suggested;redraw();renderItemProps()};
+  box.append(link);
+  /* "tab" is the internal division of the HMI area: each distinct value becomes
+     a button in the tab bar of that area (see renderHmi), and the item only
+     appears on the selected tab. In the other areas the field has no effect, so
+     it is not shown. */
+  if(selection.area==='hmi')
+    box.append(itemField(t('tab'),item.tab,v=>item.tab=v||undefined,null,existingTabs()));
+  box.append(itemField(t('area'),selection.area,target=>{
+    if(target===selection.area)return;
+    const [moved]=areaList(selection.area).splice(selection.index,1);
+    const list=areaList(target);list.push(moved);
+    selection={area:target,index:list.length-1};
+  },AREAS.map(([area])=>area)));
+  const row=document.createElement('div');row.className='row2';
+  const up=document.createElement('button');up.textContent=t('↑ up');up.onclick=()=>moveItem(-1);
+  const down=document.createElement('button');down.textContent=t('↓ down');down.onclick=()=>moveItem(1);
+  row.append(up,down);
+  const remove=document.createElement('button');remove.className='danger';remove.style.marginTop='8px';
+  remove.textContent=t('Remove from screen');
+  remove.onclick=()=>{markChanged();areaList(selection.area).splice(selection.index,1);selection=null;redraw();renderItemProps()};
+  box.append(row,remove);
+  if(selection.area==='communication'){
+    const note=document.createElement('div');note.className='note';
+    note.textContent=t('This area is derived from modbus.toml at build: edit the map, not the screen.');
+    box.append(note);
+  }
+}
+$('addItem').onclick=()=>{
+  const path=$('newTag').value.trim();if(!variables.has(path)){notify(t('Choose a tag available in the catalog.'),true);return}
+  const area=$('newArea').value;
+  markChanged();
+  const list=areaList(area);
+  list.push({tag:path,label:path.split(/[._]/).pop(),kind:variables.get(path)?.type==='BOOL'?'lamp':'number',writable:false,ioType:'INTERNAL'});
+  selection={area,index:list.length-1};
+  redraw();renderItemProps();
+};
+$('savePanel').onclick=async()=>{
+  const button=$('savePanel'),snapshot=JSON.stringify(config);button.disabled=true;setSaveState(t('saving...'));
+  try {
+    const response=await fetch('/api/save-config?target=panel',
+      {method:'POST',headers:{'Content-Type':'application/json'},body:snapshot,signal:AbortSignal.timeout(10000)});
+    const data=await response.json().catch(()=>{throw Error(t('Runtime did not answer in JSON; saving unavailable'))});
+    if(!response.ok||!data.ok)throw Error(data.error||'HTTP '+response.status);
+    panelSavedSnapshot=snapshot;setSaveState(t('saved'));undoStack=[];
+  }catch(error){setSaveState(t('ERROR: {message} — edits kept on this screen',{message:error.message}));}
+  finally{button.disabled=false;}
+};
+$('revertPanel').onclick=async()=>{config=await api('/api/panel-config');panelSavedSnapshot=JSON.stringify(config);selection=null;undoStack=[];setSaveState('');banner();redraw();renderItemProps()};
+function toggleEditor(on){
+  editingScreen=on===undefined?!editingScreen:on;
+  /* Two bars open at the same time fight for the same space and hide the whole
+     screen: opening one closes the other. */
+  if(editingScreen){for(const tag of activePushes){activePushes.delete(tag);write(tag,0,true)}closeDrawer();toggleSimPanel(false);setPanelSection('all')}
+  document.body.classList.toggle('editing',editingScreen);
+  $('editor').classList.toggle('open',editingScreen);
+  $('editButton').textContent=editingScreen?t('Exit editing'):t('Edit screen');
+  if(editingScreen){
+    if(!$('newArea').childElementCount)
+      for(const [area,,caption] of AREAS){const o=document.createElement('option');o.value=area;o.textContent=t(caption);$('newArea').append(o)}
+    if(!$('catalog').childElementCount)
+      for(const path of [...variables.keys()].sort()){const o=document.createElement('option');o.value=path;$('catalog').append(o)}
+  }
+  selection=null;redraw();renderItemProps();
+}
+function closeDrawer(){
+  $('drawer').classList.remove('open');document.body.classList.remove('drawer-open');
+}
+function undoScreen(){
+  if(!undoStack.length){setSaveState(t('nothing to undo'));return}
+  config=undoStack.pop();selection=null;banner();redraw();renderItemProps();
+  setSaveState(undoStack.length?t('undone'):t('undone — back to the saved state'));
+}
+$('undoPanel').onclick=undoScreen;
+$('editButton').onclick=()=>toggleEditor();
+$('closeEditor').onclick=()=>toggleEditor(false);
+/* The variables-and-trends drawer is the other bar: opening one closes the
+   other, and both push the content instead of covering it. */
+$('rawButton').addEventListener('click',()=>{toggleEditor(false);toggleSimPanel(false);document.body.classList.add('drawer-open')});
+$('closeRaw').addEventListener('click',closeDrawer);
+window.addEventListener('keydown',event=>{
+  if(!editingScreen||/input|select|textarea/i.test(event.target.tagName))return;
+  if(event.key==='Escape'){selection=null;redraw();renderItemProps();return}
+  if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='z'){event.preventDefault();undoScreen()}
+});
+</script>
+<script>
+/* ------------------------------------------------- simulation bar
+   The bench is made of tags, but the simulation is not a tag: it is the field
+   model written in ST. Publishing "level rising" bits would duplicate in tags
+   what the code already says, and the screen would lie when the code changed.
+   This bar fetches the simulation routine from the runtime (/api/source) and
+   shows the file as it is on disk, with the value each line writes next to it.
+
+   The file and the master switch come from panel.json:
+     "simulation": {"source": "routines/01_Simulation.st", "enable": "SimEnable"}
+   Without that block the legacy defaults of older projects are used.
+
+   Highlighted line = the value it writes changed in the last cycle. This is
+   derived from the value, not from execution tracing. */
+const LEGACY_SIM_SOURCE='routines/03_Simu.st',LEGACY_SIM_ENABLE='SimuAtiva';
+const simSource=()=>config?.simulation?.source||LEGACY_SIM_SOURCE;
+const simEnableTag=()=>config?.simulation?.enable||LEGACY_SIM_ENABLE;
+let simLines=[],previousValues=new Map(),simPanelOpen=false;
+
+/* A constant index becomes a number: the catalog has Instruments[2], the code
+   has [LT_TANK], and LT_TANK is a global with value 2. */
+function resolvePath(path){
+  return path.replace(/\[([A-Za-z_]\w*)\]/g,(whole,name)=>{
+    const index=variables.get(name);
+    return index&&Number.isFinite(Number(index.value))?'['+Number(index.value)+']':whole;
+  });
+}
+function lineTarget(text){
+  const assignment=/^\s*([A-Za-z_][\w.\[\]]*)\s*:=/.exec(text);
+  if(!assignment)return null;
+  const path=resolvePath(assignment[1]);
+  return variables.has(path)?path:null;
+}
+function lineClass(text){
+  const clean=text.trim();
+  if(!clean)return 'empty';
+  if(clean.startsWith('(*')||clean.startsWith('*')||clean.endsWith('*)'))return 'comment';
+  if(/^(IF|ELSIF|ELSE|END_IF|FOR|END_FOR|WHILE|END_WHILE)\b/i.test(clean))return 'structure';
+  return 'code';
+}
+function simHeader(){
+  $('simEnableName').textContent=simEnableTag();
+  const hint=$('simHint'),parts=t('What the simulation does is the code itself: below is {file} as it is on disk, with the value each line writes. Highlighted line = its value changed in the last cycle.').split('{file}');
+  const code=document.createElement('code');code.textContent=simSource();
+  hint.replaceChildren(parts[0],code,parts[1]||'');
+}
+async function loadSimSource(){
+  simHeader();
+  const response=await fetch('/api/source?file='+encodeURIComponent(simSource()),{cache:'no-store'});
+  const text=await response.text();
+  const root=$('simCode');root.replaceChildren();simLines=[];
+  text.split('\n').forEach((line,index)=>{
+    const div=document.createElement('div');
+    div.className='sim-line '+lineClass(line);
+    const number=document.createElement('span');number.className='n';number.textContent=index+1;
+    const code=document.createElement('code');code.textContent=line||' ';
+    const value=document.createElement('span');value.className='sim-value';
+    div.append(number,code,value);root.append(div);
+    simLines.push({div,value,text:line,tag:null,resolved:false});
+  });
+  updateSimPanel();
+}
+function updateSimPanel(){
+  if(!simPanelOpen||!simLines.length)return;
+  for(const line of simLines){
+    if(!line.resolved&&variables.size){line.tag=lineTarget(line.text);line.resolved=true}
+    if(!line.tag){line.value.textContent='';continue}
+    const variable=variables.get(line.tag);
+    if(!variable){line.value.textContent='';continue}
+    const current=Number(variable.value);
+    const before=previousValues.get(line.tag);
+    const text=variable.type==='BOOL'?(variable.value?'TRUE':'FALSE')
+      :['REAL','LREAL'].includes(variable.type)?current.toFixed(2):String(variable.value);
+    let arrow='',cls='';
+    if(before!==undefined&&Number.isFinite(current)&&Number.isFinite(before)&&current!==before){
+      arrow=current>before?' ↑':' ↓';cls=current>before?'up':'down';
+    }
+    line.value.textContent=text+arrow;
+    line.value.className='sim-value '+cls;
+    line.div.classList.toggle('changed',Boolean(cls));
+    previousValues.set(line.tag,current);
+  }
+  const master=variables.get(simEnableTag());
+  if(master){
+    $('simToggle').textContent=master.value?t('ON'):t('OFF');
+    $('simToggle').classList.toggle('true',Boolean(master.value));
+  }
+}
+$('simToggle').onclick=()=>write(simEnableTag(),variables.get(simEnableTag())?.value?0:1);
+function toggleSimPanel(on){
+  simPanelOpen=on===undefined?!simPanelOpen:on;
+  /* One bar at a time, like the ones on the right: two open bars squeeze the
+     bench between them and no screen is left. */
+  if(simPanelOpen){toggleEditor(false);closeDrawer()}
+  $('simPanel').classList.toggle('open',simPanelOpen);
+  document.body.classList.toggle('sim-open',simPanelOpen);
+  if(simPanelOpen&&!simLines.length)loadSimSource().catch(error=>{
+    $('simCode').textContent=t('could not read {file}: {message}',{file:simSource(),message:error.message});
+  });
+  updateSimPanel();
+}
+$('simButton').onclick=()=>toggleSimPanel();
+$('closeSim').onclick=()=>toggleSimPanel(false);
+</script>
+<div id="toast" class="toast" role="status"></div>
+<script>
+let panelSection='operation';function setPanelSection(section){panelSection=section;document.body.classList.toggle('operation-view',section==='operation');for(const card of document.querySelectorAll('[data-panel-section]'))card.hidden=(section!=='all'&&card.dataset.panelSection!==section)||(!editingScreen&&!card.querySelector('.tag-row'));for(const button of document.querySelectorAll('[data-section]'))button.classList.toggle('active',button.dataset.section===section)}
+for(const button of document.querySelectorAll('[data-section]'))button.onclick=()=>setPanelSection(button.dataset.section);
+for(const button of document.querySelectorAll('[data-runtime]'))button.onclick=async()=>{button.disabled=true;try{await api('/api/control?action='+button.dataset.runtime)}catch(error){notify(error.message,true)}finally{button.disabled=false}};
+$('settingsButton').onclick=()=>PlcSettings.open({getConfig:()=>config,save:async next=>{const response=await fetch('/api/save-config?target=panel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(next),signal:AbortSignal.timeout(10000)});const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||t('Could not save the screen.'))},apply:next=>{config=next;panelSavedSnapshot=JSON.stringify(config);undoStack=[];setSaveState(t('saved'));banner();applyTheme(config.display?.theme||'light');document.body.classList.toggle('compact',config.display?.density==='compact');redraw();renderItemProps()}});
+setPanelSection('operation');
+</script>
+<!-- PLC_SETTINGS_START -->
+<script>
+/* Shared by the self-contained HMI and P&ID pages (embedded by scripts/embed-panel-settings.py).
+   Language: window.hplcLang ('en' default, 'pt-BR'), injected by the extension. */
+(() => {
+  const PT_BR = {
+    'Project settings are available inside VS Code.': 'As configurações do projeto ficam disponíveis dentro do VS Code.',
+    'Open this screen with the View PLC button in VS Code to configure the project.': 'Abra esta tela pelo botão Ver PLC no VS Code para configurar o projeto.',
+    'Settings': 'Configurações', 'Close settings': 'Fechar configurações', 'This view': 'Esta visualização', 'Screen title': 'Título da tela',
+    'Default decimal places': 'Casas decimais padrão', 'Theme': 'Tema', 'Light': 'Claro', 'Dark': 'Escuro', 'Density': 'Densidade',
+    'Comfortable': 'Confortável', 'Compact': 'Compacta', 'Save view': 'Salvar visualização', 'Project and execution': 'Projeto e execução',
+    'Loading project settings…': 'Carregando configuração do projeto…', 'Project name': 'Nome do projeto', 'Task': 'Task',
+    'Startup program': 'Programa inicial', 'Scan in milliseconds': 'Scan em milissegundos', 'HMI port': 'Porta da IHM', 'P&ID port': 'Porta do P&ID',
+    'Save project': 'Salvar projeto', 'Program, scan and ports are applied at the next Stop / Play. Saving does not restart the PLC.': 'Programa, scan e portas serão aplicados no próximo Stop / Play. Salvar não reinicia o PLC.',
+    'Enter a title and 0 to 8 decimal places.': 'Informe um título e de 0 a 8 casas decimais.', 'View saved.': 'Visualização salva.',
+    'Project saved. The current execution was kept.': 'Projeto salvo. A execução atual foi mantida.', 'Settings of the project linked to this screen.': 'Configuração do projeto associado a esta tela.'
+  };
+  const t = text => (window.hplcLang === 'pt-BR' && PT_BR[text] !== undefined ? PT_BR[text] : text);
+  const h = text => t(text).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const pending = new Map();
+  window.addEventListener('message', event => {
+    if (event.source !== window.parent || event.data?.channel !== 'plc-ui-result') return;
+    const request = pending.get(event.data.requestId);
+    if (!request) return;
+    pending.delete(event.data.requestId); clearTimeout(request.timer);
+    event.data.error ? request.reject(Error(event.data.error)) : request.resolve(event.data.data);
+  });
+  function host(action, values) {
+    return new Promise((resolve, reject) => {
+      if (window.parent === window) { reject(Error(t('Project settings are available inside VS Code.'))); return; }
+      const requestId = crypto.randomUUID?.() || [...crypto.getRandomValues(new Uint32Array(4))].map(n => n.toString(16)).join('-');
+      const timer = setTimeout(() => { pending.delete(requestId); reject(Error(t('Open this screen with the View PLC button in VS Code to configure the project.'))); }, 5000);
+      pending.set(requestId, { resolve, reject, timer });
+      window.parent.postMessage({ channel: 'plc-ui', requestId, action, values }, '*');
+    });
+  }
+  let dialog, adapter;
+  function build() {
+    const css = document.createElement('style');
+    css.textContent = `.plc-settings{width:min(680px,94vw);max-height:90vh;border:1px solid var(--line);border-radius:14px;padding:0;background:var(--surface);color:var(--text);box-shadow:0 24px 80px #0004}.plc-settings::backdrop{background:#10192388;backdrop-filter:blur(3px)}.ps-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line)}.ps-head h2{margin:0;font-size:17px}.ps-body{padding:18px 22px;overflow:auto;max-height:70vh}.ps-body h3{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:4px 0 14px}.ps-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ps-grid label{display:grid;gap:5px;font-size:12px}.ps-grid .wide{grid-column:1/-1}.plc-settings input,.plc-settings select{min-width:0;width:100%;padding:9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font:inherit}.plc-settings button{padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer}.plc-settings .primary{background:var(--accent,#315f78);color:#fff;border-color:transparent}.ps-actions{display:flex;align-items:center;gap:12px;margin-top:14px}.ps-note{font-size:12px;color:var(--muted);line-height:1.6}.ps-result{font-size:12px;min-height:18px;margin-top:9px}.ps-project{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}@media(max-width:500px){.ps-grid{grid-template-columns:1fr}.ps-grid .wide{grid-column:auto}}`;
+    document.head.append(css); dialog = document.createElement('dialog'); dialog.className = 'plc-settings';
+    dialog.innerHTML = `<div class="ps-head"><h2>${h('Settings')}</h2><button id="ps-close" aria-label="${h('Close settings')}">✕</button></div><div class="ps-body"><h3>${h('This view')}</h3><div class="ps-grid"><label class="wide">${h('Screen title')}<input id="ps-title"></label><label>${h('Default decimal places')}<input id="ps-precision" type="number" min="0" max="8"></label><label>${h('Theme')}<select id="ps-theme"><option value="light">${h('Light')}</option><option value="dark">${h('Dark')}</option></select></label><label>${h('Density')}<select id="ps-density"><option value="comfortable">${h('Comfortable')}</option><option value="compact">${h('Compact')}</option></select></label></div><div class="ps-actions"><button id="ps-save-page" class="primary">${h('Save view')}</button></div><div id="ps-page-result" class="ps-result" role="status"></div><section class="ps-project"><h3>${h('Project and execution')}</h3><p id="ps-project-note" class="ps-note">${h('Loading project settings…')}</p><div id="ps-project-fields" hidden><div class="ps-grid"><label class="wide">${h('Project name')}<input id="ps-name"></label><label>${h('Task')}<input id="ps-task"></label><label>${h('Startup program')}<select id="ps-program"></select></label><label>${h('Scan in milliseconds')}<input id="ps-interval" type="number" min="1" max="60000"></label><label>${h('HMI port')}<input id="ps-panelPort" type="number" min="1024" max="65535"></label><label>${h('P&ID port')}<input id="ps-pidPort" type="number" min="1024" max="65535"></label></div><div class="ps-actions"><button id="ps-save-project" class="primary">${h('Save project')}</button></div><p class="ps-note">${h('Program, scan and ports are applied at the next Stop / Play. Saving does not restart the PLC.')}</p></div><div id="ps-project-result" class="ps-result" role="status"></div></section></div>`;
+    document.body.append(dialog);
+    const $ = id => dialog.querySelector('#ps-' + id);
+    $('close').onclick = () => dialog.close();
+    $('save-page').onclick = async () => {
+      const button = $('save-page'); button.disabled = true;
+      try {
+        const precision = Number($('precision').value);
+        if (!$('title').value.trim() || !Number.isInteger(precision) || precision < 0 || precision > 8) throw Error(t('Enter a title and 0 to 8 decimal places.'));
+        const config = structuredClone(adapter.getConfig());
+        config.title = $('title').value.trim();
+        config.display = { ...config.display, realPrecision: precision, theme: $('theme').value, density: $('density').value };
+        await adapter.save(config); adapter.apply(config);
+        $('page-result').textContent = t('View saved.');
+      } catch (error) { $('page-result').textContent = error.message; }
+      finally { button.disabled = false; }
+    };
+    $('save-project').onclick = async () => {
+      const button = $('save-project'); button.disabled = true;
+      const values = {};
+      for (const key of ['name', 'task', 'program', 'interval', 'panelPort', 'pidPort']) values[key] = ['interval', 'panelPort', 'pidPort'].includes(key) ? Number($(key).value) : $(key).value;
+      try { await host('save-project-settings', values); $('project-result').textContent = t('Project saved. The current execution was kept.'); }
+      catch (error) { $('project-result').textContent = error.message; }
+      finally { button.disabled = false; }
+    };
+  }
+  window.PlcSettings = {
+    async open(nextAdapter) {
+      adapter = nextAdapter; if (!dialog) build();
+      const $ = id => dialog.querySelector('#ps-' + id), config = adapter.getConfig();
+      $('title').value = config.title || ''; $('precision').value = config.display?.realPrecision ?? 2;
+      $('theme').value = document.documentElement.dataset.theme || config.display?.theme || 'light'; $('density').value = config.display?.density || 'comfortable';
+      $('page-result').textContent = ''; $('project-result').textContent = ''; $('project-fields').hidden = true;
+      $('project-note').textContent = t('Loading project settings…'); dialog.showModal();
+      try {
+        const data = await host('get-project-settings'); $('program').replaceChildren();
+        for (const name of data.programs) { const option = document.createElement('option'); option.value = option.textContent = name; $('program').append(option); }
+        for (const key of ['name', 'task', 'program', 'interval', 'panelPort', 'pidPort']) $(key).value = data[key];
+        $('project-fields').hidden = false; $('project-note').textContent = t('Settings of the project linked to this screen.');
+      } catch (error) { $('project-note').textContent = error.message; }
+    },
+    async navigate(view, fallback) { try { await host('navigate', { view }); } catch (_) { fallback?.(); } }
+  };
+})();
+
+</script>
+<!-- PLC_SETTINGS_END -->
+
+</body>
+</html>

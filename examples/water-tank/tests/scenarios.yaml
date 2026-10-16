@@ -1,0 +1,47 @@
+name: "Water tank scenarios"
+scenarios:
+  - name: "Auto cycle fills the tank"
+    steps:
+      - set: SimEnable
+        value: true
+      - set: SimLevel
+        value: 30
+      - set: Inputs.AutoSelector
+        value: true
+      - set: Inputs.StopButton
+        value: true
+      - pulse: Hmi.ResetCmd
+      - pulse: Hmi.StartCmd
+      - wait_ms: 300
+      - expect: Status.State
+        value: 1
+      - expect: Outputs.PumpRun
+        value: true
+      - expect: Outputs.ValveOpen
+        value: false
+  - name: "Stop returns to Idle"
+    steps:
+      - pulse: Hmi.StopCmd
+      - wait_ms: 200
+      - expect: Status.State
+        value: 0
+      - expect: Outputs.PumpRun
+        value: false
+  - name: "High level alarm blocks the pump in Manual"
+    steps:
+      - set: Inputs.AutoSelector
+        value: false
+      - set: SimLevel
+        value: 97
+      - wait_ms: 200
+      - set: Hmi.ManualPump
+        value: true
+      - wait_ms: 200
+      - expect: Status.HighAlarm
+        value: true
+      - expect: Outputs.PumpRun
+        value: false
+      - set: Hmi.ManualPump
+        value: false
+      - set: Inputs.AutoSelector
+        value: true

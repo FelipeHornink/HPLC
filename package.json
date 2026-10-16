@@ -1,0 +1,484 @@
+{
+  "name": "hplc",
+  "displayName": "HPLC",
+  "description": "%description%",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FelipeHornink/HPLC.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FelipeHornink/HPLC/issues"
+  },
+  "version": "0.40.0",
+  "publisher": "FelipeHornink",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:hplc.projects",
+    "onCommand:hplc.selectProject",
+    "onCommand:hplc.playProject",
+    "onCommand:hplc.refreshVariables",
+    "onCommand:hplc.writeVariable",
+    "onCommand:hplc.forceVariable",
+    "onCommand:hplc.unforceVariable",
+    "onCommand:hplc.exportXml",
+    "onCommand:hplc.newProject",
+    "onCommand:hplc.importXml",
+    "onCommand:hplc.addProject",
+    "onCommand:hplc.removeProject",
+    "onCommand:hplc.stopAll",
+    "onCommand:hplc.configureProject",
+    "onCommand:hplc.editMapping",
+    "onCommand:hplc.editPid",
+    "onCommand:hplc.configurePanel",
+    "onCommand:hplc.build",
+    "onCommand:hplc.play",
+    "onCommand:hplc.stop",
+    "onCommand:hplc.openPanel",
+    "onCommand:hplc.openPid",
+    "onCommand:hplc.openProjectPid",
+    "onCommand:hplc.runScenarios",
+    "onCommand:hplc.importReport",
+    "workspaceContains:plc.toml",
+    "onCommand:plcCodex.configureProject",
+    "onCommand:plcCodex.editMapping",
+    "onCommand:plcCodex.editPid",
+    "onCommand:plcCodex.runScenarios",
+    "onCommand:plcCodex.importReport",
+    "onCommand:plcCodex.configurePanel",
+    "onCommand:plcCodex.addProject",
+    "onCommand:plcCodex.removeProject",
+    "onCommand:plcCodex.stopAll",
+    "onCommand:plcCodex.newProject",
+    "onCommand:plcCodex.importXml",
+    "onCommand:plcCodex.selectProject",
+    "onCommand:plcCodex.refresh",
+    "onCommand:plcCodex.playProject",
+    "onCommand:plcCodex.openProjectPanel",
+    "onCommand:plcCodex.openProjectPid",
+    "onCommand:plcCodex.refreshVariables",
+    "onCommand:plcCodex.writeVariable",
+    "onCommand:plcCodex.forceVariable",
+    "onCommand:plcCodex.unforceVariable",
+    "onCommand:plcCodex.importXmlInto",
+    "onCommand:plcCodex.exportXml",
+    "onCommand:plcCodex.build",
+    "onCommand:plcCodex.play",
+    "onCommand:plcCodex.stop",
+    "onCommand:plcCodex.openPanel",
+    "onCommand:plcCodex.openPid",
+    "onCommand:plcCodex.debugRun",
+    "onCommand:plcCodex.debugPause",
+    "onCommand:plcCodex.debugStepScan",
+    "onCommand:plcCodex.debugLineMode",
+    "onCommand:plcCodex.debugStepLine",
+    "onCommand:plcCodex.openRoutine",
+    "onCommand:plcCodex.openWorkbench",
+    "onCommand:plcCodex.openLiveCode",
+    "onCommand:plcCodex.initializeFolder",
+    "onCommand:plcCodex.viewProject",
+    "onCommand:plcCodex.togglePause"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "hplc.configureProject",
+        "title": "%command.configureProject.title%",
+        "icon": "$(settings)"
+      },
+      {
+        "command": "hplc.editMapping",
+        "title": "%command.editMapping.title%",
+        "icon": "$(layout)"
+      },
+      {
+        "command": "hplc.editPid",
+        "title": "%command.editPid.title%",
+        "icon": "$(symbol-structure)"
+      },
+      {
+        "command": "hplc.runScenarios",
+        "title": "%command.runScenarios.title%",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "hplc.importReport",
+        "title": "%command.importReport.title%",
+        "icon": "$(output)"
+      },
+      {
+        "command": "hplc.configurePanel",
+        "title": "%command.configurePanel.title%",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "hplc.addProject",
+        "title": "%command.addProject.title%",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "hplc.removeProject",
+        "title": "%command.removeProject.title%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "hplc.stopAll",
+        "title": "%command.stopAll.title%",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "hplc.newProject",
+        "title": "%command.newProject.title%",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "hplc.importXml",
+        "title": "%command.importXml.title%",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "hplc.selectProject",
+        "title": "%command.selectProject.title%",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "hplc.refresh",
+        "title": "%command.refresh.title%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "hplc.playProject",
+        "title": "%command.playProject.title%",
+        "icon": "$(play)"
+      },
+      {
+        "command": "hplc.openProjectPanel",
+        "title": "%command.openProjectPanel.title%",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "hplc.openProjectPid",
+        "title": "%command.openProjectPid.title%",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "hplc.refreshVariables",
+        "title": "%command.refreshVariables.title%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "hplc.writeVariable",
+        "title": "%command.writeVariable.title%",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "hplc.forceVariable",
+        "title": "%command.forceVariable.title%",
+        "icon": "$(lock)"
+      },
+      {
+        "command": "hplc.unforceVariable",
+        "title": "%command.unforceVariable.title%",
+        "icon": "$(unlock)"
+      },
+      {
+        "command": "hplc.importXmlInto",
+        "title": "%command.importXmlInto.title%",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "hplc.exportXml",
+        "title": "%command.exportXml.title%",
+        "icon": "$(export)"
+      },
+      {
+        "command": "hplc.build",
+        "title": "%command.build.title%"
+      },
+      {
+        "command": "hplc.play",
+        "title": "%command.play.title%",
+        "icon": "$(play)"
+      },
+      {
+        "command": "hplc.stop",
+        "title": "%command.stop.title%",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "hplc.openPanel",
+        "title": "%command.openPanel.title%",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "hplc.openPid",
+        "title": "%command.openPid.title%",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "hplc.debugRun",
+        "title": "%command.debugRun.title%",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "hplc.debugPause",
+        "title": "%command.debugPause.title%",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "hplc.debugStepScan",
+        "title": "%command.debugStepScan.title%",
+        "icon": "$(debug-step-over)"
+      },
+      {
+        "command": "hplc.debugLineMode",
+        "title": "%command.debugLineMode.title%",
+        "icon": "$(debug-step-into)"
+      },
+      {
+        "command": "hplc.debugStepLine",
+        "title": "%command.debugStepLine.title%",
+        "icon": "$(debug-step-over)"
+      },
+      {
+        "command": "hplc.openRoutine",
+        "title": "%command.openRoutine.title%"
+      },
+      {
+        "command": "hplc.openWorkbench",
+        "title": "%command.openWorkbench.title%",
+        "icon": "$(layout)"
+      },
+      {
+        "command": "hplc.openLiveCode",
+        "title": "%command.openLiveCode.title%",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "hplc.initializeFolder",
+        "title": "%command.initializeFolder.title%"
+      },
+      {
+        "command": "hplc.viewProject",
+        "title": "%command.viewProject.title%",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "hplc.togglePause",
+        "title": "%command.togglePause.title%",
+        "icon": "$(debug-pause)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "hplc",
+          "title": "HPLC",
+          "icon": "media/plc.svg"
+        }
+      ]
+    },
+    "views": {
+      "hplc": [
+        {
+          "id": "hplc.projects",
+          "name": "%view.projects.name%"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "hplc.addProject",
+          "when": "view == hplc.projects",
+          "group": "navigation@1"
+        },
+        {
+          "command": "hplc.importXml",
+          "when": "view == hplc.projects",
+          "group": "navigation@2"
+        },
+        {
+          "command": "hplc.newProject",
+          "when": "view == hplc.projects",
+          "group": "navigation@3"
+        },
+        {
+          "command": "hplc.refresh",
+          "when": "view == hplc.projects",
+          "group": "navigation@5"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "hplc.exportXml",
+          "when": "view == hplc.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive || viewItem == plcProjectRunning)",
+          "group": "inline@0"
+        },
+        {
+          "command": "hplc.viewProject",
+          "when": "view == hplc.projects && viewItem == plcProjectRunning",
+          "group": "inline@1"
+        },
+        {
+          "command": "hplc.togglePause",
+          "when": "view == hplc.projects && viewItem == plcProjectRunning",
+          "group": "inline@2"
+        },
+        {
+          "command": "hplc.stop",
+          "when": "view == hplc.projects && viewItem == plcProjectRunning",
+          "group": "inline@3"
+        },
+        {
+          "command": "hplc.playProject",
+          "when": "view == hplc.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive)",
+          "group": "inline@1"
+        },
+        {
+          "command": "hplc.configureProject",
+          "when": "view == hplc.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive || viewItem == plcProjectRunning)",
+          "group": "2_project"
+        },
+        {
+          "command": "hplc.removeProject",
+          "when": "view == hplc.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive)",
+          "group": "2_project"
+        },
+        {
+          "command": "hplc.openProjectPanel",
+          "when": "view == hplc.projects && (viewItem == plcProjectStopped || viewItem == plcProjectRunning)",
+          "group": "2_project"
+        },
+        {
+          "command": "hplc.openProjectPid",
+          "when": "view == hplc.projects && (viewItem == plcProjectStopped || viewItem == plcProjectRunning)",
+          "group": "2_project"
+        },
+        {
+          "command": "hplc.stop",
+          "when": "view == hplc.processes && viewItem == plcRunningProcess",
+          "group": "inline@1"
+        },
+        {
+          "command": "hplc.openProjectPanel",
+          "when": "view == hplc.processes && viewItem == plcRunningProcess",
+          "group": "2_project"
+        },
+        {
+          "command": "hplc.openProjectPid",
+          "when": "view == hplc.processes && viewItem == plcRunningProcess",
+          "group": "2_project"
+        },
+        {
+          "command": "hplc.writeVariable",
+          "when": "view == hplc.variables && (viewItem == plcVariableWritable || viewItem == plcVariableForced)",
+          "group": "2_project"
+        },
+        {
+          "command": "hplc.forceVariable",
+          "when": "view == hplc.variables && viewItem == plcVariableWritable",
+          "group": "2_project"
+        },
+        {
+          "command": "hplc.unforceVariable",
+          "when": "view == hplc.variables && viewItem == plcVariableForced",
+          "group": "2_project"
+        },
+        {
+          "command": "hplc.exportXml",
+          "when": "view == hplc.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive || viewItem == plcProjectRunning)",
+          "group": "2_project"
+        },
+        {
+          "command": "hplc.importXmlInto",
+          "when": "view == hplc.projects && (viewItem == plcProjectStopped || viewItem == plcProjectInactive || viewItem == plcProjectRunning)",
+          "group": "2_project"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "iec-st",
+        "aliases": [
+          "Structured Text",
+          "ST"
+        ],
+        "extensions": [
+          ".st"
+        ]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "iec-st",
+        "scopeName": "source.iec-st",
+        "path": "./syntaxes/st.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "HPLC",
+      "properties": {
+        "hplc.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "en",
+            "pt-BR"
+          ],
+          "default": "auto",
+          "enumDescriptions": [
+            "%config.language.auto%",
+            "%config.language.en%",
+            "%config.language.ptBR%"
+          ],
+          "description": "%config.language.description%"
+        },
+        "hplc.simulationLayout": {
+          "type": "string",
+          "enum": [
+            "below",
+            "sideBySide"
+          ],
+          "default": "below",
+          "enumDescriptions": [
+            "%config.simulationLayout.below%",
+            "%config.simulationLayout.sideBySide%"
+          ],
+          "description": "%config.simulationLayout.description%"
+        },
+        "hplc.layoutSimulacao": {
+          "type": "string",
+          "enum": [
+            "embaixo",
+            "lado a lado"
+          ],
+          "markdownDeprecationMessage": "%config.layoutSimulacao.deprecation%",
+          "description": "%config.layoutSimulacao.description%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --check extension.js",
+    "package": "npx @vscode/vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "2.26.1"
+  },
+  "overrides": {
+    "cheerio": "1.0.0-rc.12"
+  },
+  "__metadata": {
+    "installedTimestamp": 1787357303575,
+    "targetPlatform": "undefined",
+    "size": 385539
+  }
+}

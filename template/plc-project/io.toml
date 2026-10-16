@@ -1,0 +1,17 @@
+# I/O map of the project: one block per physical channel.
+# [[di]] digital inputs, [[do]] digital outputs, [[ai]] analog inputs, [[ao]] analog outputs.
+#
+# Example:
+# [[di]]
+# name="Inputs.StartButton"   # ST path of the variable
+# address="DI-00"             # channel shown on the bench
+# label="Start push button"
+# control="momentary"         # switch | momentary | feedback
+#
+# [[ai]]
+# name="Analog.LevelRaw"
+# address="AI-00"
+# label="Tank level"
+# minimum=0.0
+# maximum=100.0
+# unit="%"

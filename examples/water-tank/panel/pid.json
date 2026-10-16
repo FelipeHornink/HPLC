@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "title": "Water Tank Demo — process view",
+  "display": {"realPrecision": 1, "theme": "light"},
+  "items": [
+    {"id":"lt100","tag":"Level","label":"LT-100 level","kind":"display","x":50,"y":14,"unit":"%","precision":1,"width":152},
+    {"id":"state","tag":"Status.State","label":"Tank state","kind":"display","x":50,"y":86,"width":152,"valueLabels":{"0":"Idle","1":"Filling","2":"Draining"}},
+    {"id":"p101","tag":"Outputs.PumpRun","label":"P-101 command","kind":"display","x":16,"y":30,"width":140,"onLabel":"Running","offLabel":"Stopped"},
+    {"id":"xv102","tag":"Outputs.ValveOpen","label":"XV-102 command","kind":"display","x":82,"y":30,"width":140,"onLabel":"Open","offLabel":"Closed"},
+    {"id":"lah","tag":"Status.HighAlarm","label":"LAH","kind":"display","x":70,"y":14,"width":110,"onLabel":"ALARM","offLabel":"Normal"},
+    {"id":"lal","tag":"Status.LowAlarm","label":"LAL","kind":"display","x":70,"y":72,"width":110,"onLabel":"ALARM","offLabel":"Normal"},
+    {"id":"start","tag":"Hmi.StartCmd","label":"Start","kind":"momentary","writable":true,"x":8,"y":86,"width":120},
+    {"id":"stop","tag":"Hmi.StopCmd","label":"Stop","kind":"momentary","writable":true,"x":24,"y":86,"width":120}
+  ],
+  "shapes": [
+    {"id":"pipe_in","type":"pipe","x":10,"y":52,"width":12,"height":2.5,"rotation":0},
+    {"id":"pump_p101","type":"pump","x":20,"y":52,"width":8,"height":8,"rotation":0,"tag":"Outputs.PumpRun","onColor":"#4d7558","offColor":"#8a97a0","label":"P-101"},
+    {"id":"pipe_fill","type":"pipe","x":31,"y":52,"width":14,"height":2.5,"rotation":0},
+    {"id":"tank","type":"vessel","x":50,"y":50,"width":20,"height":50,"rotation":0,"label":"TK-100"},
+    {"id":"pipe_drain","type":"pipe","x":68,"y":52,"width":12,"height":2.5,"rotation":0},
+    {"id":"valve_xv102","type":"valve","x":78,"y":52,"width":6,"height":6,"rotation":0,"tag":"Outputs.ValveOpen","onColor":"#4d7558","offColor":"#8a97a0","label":"XV-102"},
+    {"id":"pipe_out","type":"pipe","x":89,"y":52,"width":12,"height":2.5,"rotation":0}
+  ]
+}

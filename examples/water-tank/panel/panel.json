@@ -1,0 +1,48 @@
+{
+  "version": 2,
+  "title": "Water Tank Demo",
+  "display": {"realPrecision": 1, "theme": "light"},
+  "simulation": {"source": "routines/01_Simulation.st", "enable": "SimEnable"},
+  "areas": {
+    "monitoring": [
+      {"tag":"Status.State","label":"Tank state","kind":"number","ioType":"STATUS","writable":false,"valueLabels":{"0":"Idle","1":"Filling","2":"Draining"}},
+      {"tag":"Level","label":"LT-100 level","kind":"number","ioType":"AI","unit":"%","precision":1,"writable":false,"simulation_flag":{"flag":"SimEnable","value":"SimLevel","readonly":true}},
+      {"tag":"Status.AutoMode","label":"Auto mode","kind":"lamp","ioType":"STATUS","writable":false,"valueLabels":{"true":"Auto","false":"Manual"}},
+      {"tag":"Status.Running","label":"Auto cycle running","kind":"lamp","ioType":"STATUS","writable":false},
+      {"tag":"Status.HighAlarm","label":"LAH high level","kind":"lamp","ioType":"STATUS","writable":false},
+      {"tag":"Status.LowAlarm","label":"LAL low level","kind":"lamp","ioType":"STATUS","writable":false},
+      {"tag":"Status.PumpFault","label":"Pump fault","kind":"lamp","ioType":"STATUS","writable":false},
+      {"tag":"Status.ValveFault","label":"Valve fault","kind":"lamp","ioType":"STATUS","writable":false}
+    ],
+    "hmi": [
+      {"tab":"Operation","tag":"Hmi.StartCmd","label":"Start","kind":"momentary","ioType":"HMI","writable":true},
+      {"tab":"Operation","tag":"Hmi.StopCmd","label":"Stop","kind":"momentary","ioType":"HMI","writable":true},
+      {"tab":"Operation","tag":"Hmi.ResetCmd","label":"Reset faults","kind":"momentary","ioType":"HMI","writable":true},
+      {"tab":"Operation","tag":"Status.PumpRunning","label":"Pump running","kind":"lamp","ioType":"STATUS","writable":false},
+      {"tab":"Operation","tag":"Status.ValveIsOpen","label":"Valve open","kind":"lamp","ioType":"STATUS","writable":false},
+      {"tab":"Manual","tag":"Hmi.ManualPump","label":"Pump (manual)","kind":"toggle","ioType":"HMI","writable":true},
+      {"tab":"Manual","tag":"Hmi.ManualValve","label":"Valve (manual)","kind":"toggle","ioType":"HMI","writable":true},
+      {"tab":"Settings","tag":"FillTarget","label":"Fill target","kind":"number","ioType":"HMI","unit":"%","precision":1,"min":0,"max":100,"writable":true},
+      {"tab":"Settings","tag":"DrainTarget","label":"Drain target","kind":"number","ioType":"HMI","unit":"%","precision":1,"min":0,"max":100,"writable":true},
+      {"tab":"Settings","tag":"HighAlarmLimit","label":"High alarm limit","kind":"number","ioType":"HMI","unit":"%","precision":1,"min":0,"max":100,"writable":true},
+      {"tab":"Settings","tag":"LowAlarmLimit","label":"Low alarm limit","kind":"number","ioType":"HMI","unit":"%","precision":1,"min":0,"max":100,"writable":true}
+    ],
+    "panel": [
+      {"tag":"Inputs.StartButton","label":"Start push button","kind":"momentary","ioType":"DI","address":"DI-00","writable":true},
+      {"tag":"Inputs.StopButton","label":"Stop push button (NC)","kind":"toggle","ioType":"DI","address":"DI-01","writable":true,"valueLabels":{"true":"Released","false":"Pressed"}},
+      {"tag":"Inputs.AutoSelector","label":"Auto / Manual selector","kind":"toggle","ioType":"DI","address":"DI-02","writable":true,"valueLabels":{"true":"Auto","false":"Manual"}},
+      {"tag":"Outputs.HighAlarmLamp","label":"High level lamp","kind":"lamp","ioType":"DO","address":"DQ-02","writable":false},
+      {"tag":"Outputs.LowAlarmLamp","label":"Low level lamp","kind":"lamp","ioType":"DO","address":"DQ-03","writable":false}
+    ],
+    "interface": [],
+    "field": [
+      {"tag":"Outputs.PumpRun","label":"Inlet pump P-101","kind":"lamp","ioType":"DO","address":"DQ-00","writable":false},
+      {"tag":"Outputs.ValveOpen","label":"Outlet valve XV-102","kind":"lamp","ioType":"DO","address":"DQ-01","writable":false},
+      {"tag":"Inputs.PumpFeedback","label":"Pump running feedback","kind":"toggle","ioType":"DI","address":"DI-03","writable":true},
+      {"tag":"Inputs.ValveOpenFeedback","label":"Valve open limit switch","kind":"toggle","ioType":"DI","address":"DI-04","writable":true},
+      {"tag":"Analog.LevelRaw","label":"LT-100 raw (0..10000)","kind":"number","ioType":"AI","address":"AI-00","writable":true},
+      {"tag":"SimLevel","label":"Simulated level","kind":"number","ioType":"SIM","unit":"%","precision":1,"min":0,"max":100,"writable":true,"simulation_flag":{"flag":"SimEnable"}}
+    ],
+    "communication": []
+  }
+}
